@@ -1,0 +1,93 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import LookupForm from '../../components/LookupForm.astro';
+import { canonicalJson } from '../../lib/canonical';
+import { getSiteData, displayClassification } from '../../data';
+
+export function getStaticPaths() {
+  const data = getSiteData();
+  return data.entries.map((e) => ({
+    params: { seq: String(e.seq) },
+    props: { seq: e.seq },
+  }));
+}
+
+const { seq } = Astro.props;
+const data = getSiteData();
+const entry = data.entriesBySeq.get(seq)!;
+const { entry_hash, ...withoutHash } = entry as typeof entry & { entry_hash: string };
+const rawCanonical = canonicalJson(withoutHash);
+const classification = displayClassification(entry);
+const prev = seq > 0 ? seq - 1 : null;
+const next = seq + 1 < data.chainLength ? seq + 1 : null;
+---
+
+<BaseLayout
+  title={`Entry seq ${seq} · Refledger`}
+  description={`Ledger entry ${seq} (${entry.event}) recorded at ${entry.recorded_at}.`}
+  canonicalPath={`/e/${seq}`}
+>
+  <p class="muted">
+    <a href="/">Home</a> / entry <span class="mono">{seq}</span>
+  </p>
+  <h1>Entry seq {seq}</h1>
+  <p class="lede">{entry.event} · {entry.recorded_at}</p>
+
+  <p class="row">
+    {
+      prev !== null ? (
+        <a href={`/e/${prev}`}>Previous (seq {prev})</a>
+      ) : (
+        <span class="muted">No previous</span>
+      )
+    }
+    {
+      next !== null ? (
+        <a href={`/e/${next}`}>Next (seq {next})</a>
+      ) : (
+        <span class="muted">No next</span>
+      )
+    }
+  </p>
+
+  <section class="section">
+    <h2>Fields</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <tbody>
+          {
+            Object.entries(entry).map(([k, v]) => {
+              if (k === 'classification' && entry.event === 'deletion') return null;
+              return (
+                <tr>
+                  <th scope="row">{k}</th>
+                  <td>
+                    <code class="mono">{typeof v === 'string' ? v : JSON.stringify(v)}</code>
+                  </td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+    {
+      entry.event === 'deletion' && (
+        <p class="muted">
+          Classification is omitted for deletions (see correction at seq 41 about seq 40).
+        </p>
+      )
+    }
+    {classification && <p class="muted">Displayed classification: {classification}</p>}
+  </section>
+
+  <section class="section">
+    <h2>Canonical JSON (without entry_hash)</h2>
+    <div class="pre-block">
+      <pre><code>{rawCanonical}</code></pre>
+    </div>
+    <p>
+      Entry hash: <span class="mono">{entry_hash}</span>
+    </p>
+  </section>
+</BaseLayout>

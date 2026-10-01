@@ -1,0 +1,92 @@
+:root {
+  --paper: #edf0ee;
+  --surface: #f7f9f8;
+  --ink: #262b30;
+  --grid: #d3dad6;
+  --rule: #e1e6e3;
+  --trace: #97a2a0;
+  --text-secondary: #5e6a69;
+  --text-body: #4a5553;
+  --accent: #2347c8;
+
+  --radius-wall: 22px;
+  --radius-table: 16px;
+  --radius-control: 12px;
+  --radius-pill: 999px;
+
+  --font-sans: 'B612', ui-sans-serif, sans-serif;
+  --font-mono: 'B612 Mono', ui-monospace, monospace;
+
+  --focus-ring: 2px solid var(--ink);
+  --focus-offset: 2px;
+
+  --shadow-wall: 0 8px 28px rgba(38, 43, 48, 0.08);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1c2024;
+    --surface: #23282d;
+    --ink: #e6ebe8;
+    --grid: #3a4248;
+    --rule: #343b41;
+    --trace: #c9d1cd;
+    --text-secondary: #a8b3b0;
+    --text-body: #c5cecb;
+    --accent: #6e8bff;
+
+    --shadow-wall: 0 8px 28px rgba(0, 0, 0, 0.35);
+
+    color-scheme: dark;
+  }
+}
+
+@font-face {
+  font-family: 'B612';
+  src: url('/fonts/b612-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B612';
+  src: url('/fonts/b612-latin-400-italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B612';
+  src: url('/fonts/b612-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B612';
+  src: url('/fonts/b612-latin-700-italic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B612 Mono';
+  src: url('/fonts/b612-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'B612 Mono';
+  src: url('/fonts/b612-mono-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}

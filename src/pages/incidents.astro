@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData } from '../data';
+
+const data = getSiteData();
+
+// Minimal markdown: headings, paragraphs, tables, links, code. No HTML injection from MD.
+function renderMd(md: string): string {
+  const lines = md.replace(/\r\n/g, '\n').split('\n');
+  const out: string[] = [];
+  let i = 0;
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (s: string) =>
+    esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(
+        /\[([^\]]+)\]\((https?:[^)]+|\/[^)]+)\)/g,
+        '<a href="$2">$1</a>',
+      );
+
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.startsWith('# ')) {
+      out.push(`<h1>${inline(line.slice(2))}</h1>`);
+      i++;
+      continue;
+    }
+    if (line.startsWith('## ')) {
+      out.push(`<h2>${inline(line.slice(3))}</h2>`);
+      i++;
+      continue;
+    }
+    if (line.startsWith('|') && lines[i + 1]?.match(/^\|[\s-:|]+$/)) {
+      const header = line
+        .split('|')
+        .slice(1, -1)
+        .map((c) => `<th>${inline(c.trim())}</th>`)
+        .join('');
+      i += 2;
+      const rows: string[] = [];
+      while (i < lines.length && lines[i].startsWith('|')) {
+        const cells = lines[i]
+          .split('|')
+          .slice(1, -1)
+          .map((c) => `<td>${inline(c.trim())}</td>`)
+          .join('');
+        rows.push(`<tr>${cells}</tr>`);
+        i++;
+      }
+      out.push(
+        `<div class="table-wrap"><table class="data"><thead><tr>${header}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
+      );
+      continue;
+    }
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+    const para = [line];
+    i++;
+    while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('#') && !lines[i].startsWith('|')) {
+      para.push(lines[i]);
+      i++;
+    }
+    out.push(`<p>${inline(para.join(' '))}</p>`);
+  }
+  return out.join('\n');
+}
+
+const body = renderMd(data.incidentsMd.replace(/^# Incidents\s*/, '# What went wrong, on the record\n\n'));
+const digestNotes = data.digests
+  .filter((d) => d.observation_digest.note)
+  .map((d) => ({
+    seq: d.seq,
+    date: d.observation_digest.date,
+    note: d.observation_digest.note!,
+  }));
+---
+
+<BaseLayout
+  title="What went wrong, on the record · Refledger"
+  description="Disclosures of poller or publish defects that touched the public record."
+  canonicalPath="/incidents"
+>
+  <div class="prose" set:html={body} />
+
+  <section class="section">
+    <h2>Notes on signed digests</h2>
+    <p class="muted">Each note is part of a signed observation_digest entry.</p>
+    <ul>
+      {
+        digestNotes.length === 0 ? (
+          <li>No digest notes yet.</li>
+        ) : (
+          digestNotes.map((n) => (
+            <li>
+              <a href={`/e/${n.seq}`}>seq {n.seq}</a> ({n.date}): {n.note}
+            </li>
+          ))
+        )
+      }
+    </ul>
+  </section>
+</BaseLayout>

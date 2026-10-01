@@ -1,0 +1,114 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { getSiteData, shortSha, tagFromRef } from '../../../../data';
+
+export function getStaticPaths() {
+  const data = getSiteData();
+  const paths = [];
+  for (const r of data.repos) {
+    const [owner, ...rest] = r.repo.split('/');
+    const repo = rest.join('/');
+    for (const t of r.tags) {
+      const tag = tagFromRef(t.ref);
+      paths.push({
+        params: { owner, repo, tag },
+        props: { repoKey: r.repo, refName: t.ref },
+      });
+    }
+  }
+  return paths;
+}
+
+const { repoKey, refName } = Astro.props;
+const data = getSiteData();
+const repo = data.reposByName.get(repoKey)!;
+const timeline = repo.tags.find((t) => t.ref === refName)!;
+const tag = tagFromRef(refName);
+
+function heldMs(first: string, last?: string): string {
+  const end = last ? new Date(last).getTime() : Date.now();
+  const start = new Date(first).getTime();
+  const days = Math.max(0, (end - start) / 86400000);
+  if (days < 1) return `${Math.round(days * 24)} hours`;
+  return `${days.toFixed(1)} days`;
+}
+---
+
+<BaseLayout
+  title={`${repoKey}@${tag} · Refledger`}
+  description={`Binding history for ${repoKey} tag ${tag}.`}
+  canonicalPath={`/a/${repoKey}/${tag}`}
+>
+  <p class="muted">
+    <a href="/actions">Actions</a> /
+    <a href={`/a/${repoKey}`}>{repoKey}</a> /
+    <span class="mono">{tag}</span>
+    {repo.canary && <span class="pill canary">Canary</span>}
+  </p>
+  <h1 class="mono">{tag}</h1>
+  <p class="lede">Each binding below is proven by a ledger entry.</p>
+
+  {
+    timeline.tip && (
+      <p>
+        Current tip:{' '}
+        {timeline.tip.peeled && timeline.tip.commit_sha ? (
+          <a
+            class="mono"
+            href={`https://github.com/${repoKey}/commit/${timeline.tip.commit_sha}`}
+            title={timeline.tip.commit_sha}
+          >
+            {shortSha(timeline.tip.commit_sha)}
+          </a>
+        ) : (
+          <span>
+            commit not resolved yet (
+            <span class="mono" title={timeline.tip.target_sha}>
+              {shortSha(timeline.tip.target_sha)}
+            </span>
+            )
+          </span>
+        )}
+      </p>
+    )
+  }
+
+  <ol class="timeline">
+    {
+      timeline.events
+        .slice()
+        .reverse()
+        .map((ev) => {
+          const binding = ev.kind === 'deletion' ? ev.from : ev.to;
+          return (
+            <li class={ev.kind === 'move' ? 'move' : undefined}>
+              <h2>
+                {ev.kind} · <a href={`/e/${ev.seq}`}>seq {ev.seq}</a>
+              </h2>
+              <p class="muted">{ev.recorded_at}</p>
+              <p>
+                Commit:{' '}
+                <a
+                  class="mono"
+                  href={`https://github.com/${repoKey}/commit/${binding.commit_sha}`}
+                  title={binding.commit_sha}
+                >
+                  {shortSha(binding.commit_sha)}
+                </a>
+              </p>
+              <p>
+                Tree: <span class="mono" title={binding.tree_sha}>{shortSha(binding.tree_sha)}</span>
+              </p>
+              <p>
+                First observed {binding.first_observed}
+                {binding.last_observed ? `; last observed ${binding.last_observed}` : ''}
+              </p>
+              <p>
+                Held for {heldMs(binding.first_observed, binding.last_observed)}
+              </p>
+            </li>
+          );
+        })
+    }
+  </ol>
+</BaseLayout>

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcffb5dd907a # v5.0.0
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a59137d # v5.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Fetch ledger data
+        run: npm run fetch-data
+
+      - name: Unit tests and conformance vectors
+        run: npm test
+
+      - name: Publish verify assets and OG images
+        run: |
+          node scripts/publish-verify-data.mjs
+          node scripts/generate-og.mjs
+
+      - name: Build
+        run: npx astro build
+
+      - name: Copy rules
+        run: npm run check:copy
+
+      - name: JS size budget
+        run: npm run check:size
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright smoke
+        run: npm run test:e2e

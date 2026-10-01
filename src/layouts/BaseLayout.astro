@@ -1,0 +1,94 @@
+---
+import '../styles/base.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+}
+
+const {
+  title,
+  description,
+  canonicalPath = Astro.url.pathname.replace(/\/$/, '') || '/',
+  ogImage = '/og/default.png',
+} = Astro.props;
+
+const site = 'https://refledger.gautamkhosla.com';
+const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
+const path = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content={`${site}${ogImage}`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <slot name="head" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="wordmark" href="/" aria-label="Refledger home">
+          <span class="wordmark-line" aria-hidden="true"></span>
+          <span class="wordmark-line stepped" aria-hidden="true"></span>
+          <span class="wordmark-text">Refledger</span>
+        </a>
+        <nav aria-label="Primary">
+          <ul class="site-nav">
+            <li>
+              <a href="/moved" aria-current={path.startsWith('/moved') ? 'page' : undefined}
+                >Moved</a
+              >
+            </li>
+            <li>
+              <a
+                href="/actions"
+                aria-current={path.startsWith('/actions') || path.startsWith('/a/')
+                  ? 'page'
+                  : undefined}>Actions</a
+              >
+            </li>
+            <li>
+              <a href="/verify" aria-current={path.startsWith('/verify') ? 'page' : undefined}
+                >Verify</a
+              >
+            </li>
+            <li>
+              <a
+                href="/why-pinning-tags-does-not-work"
+                aria-current={path.startsWith('/why-pinning') ? 'page' : undefined}
+                >Why tags move</a
+              >
+            </li>
+            <li>
+              <a href="https://github.com/GautamTalksDev/refledger">Source on GitHub</a>
+            </li>
+          </ul>
+        </nav>
+      </header>
+      <main class="site-main">
+        <slot />
+      </main>
+      <footer class="site-footer">
+        <p>
+          A public, signed record of what GitHub Action tags pointed at, and when they moved.
+          <a href="/verify">Verify the ledger</a>
+          ·
+          <a href="/incidents">What went wrong, on the record</a>
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

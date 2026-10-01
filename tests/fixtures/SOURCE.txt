@@ -1,0 +1,5 @@
+Copied from .cache/refledger-data (data branch) and .cache/refledger-main (main branch)
+shallow clones of github.com/GautamTalksDev/refledger on 2026-10-01.
+Fixture set is a minimal slice: selected log seqs (0,1,39-45,48), one heads line
+with Rekor log_index, observations with skipped+ok+failed, and a watched.jsonl
+snippet (seeds, canary, one transitive).

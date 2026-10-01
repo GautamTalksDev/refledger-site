@@ -1,0 +1,127 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { PINNED_PUBKEY } from '../lib/verify';
+
+const cli = `git clone https://github.com/GautamTalksDev/refledger.git
+cd refledger
+cargo run --locked --release -p refledger-verify -- data/log --strict \\
+  --pubkey ${PINNED_PUBKEY}`;
+---
+
+<BaseLayout
+  title="Verify · Refledger"
+  description="Verify the Refledger hash chain and signed heads in your browser or with the CLI."
+  canonicalPath="/verify"
+>
+  <h1>Verify</h1>
+  <p class="lede">
+    Do not take our word for it. Replay the chain and check every signature yourself.
+  </p>
+
+  <section class="section">
+    <h2>Verify in your browser</h2>
+    <p class="muted">
+      This page re-canonicalises every entry, recomputes SHA-256, checks prev_hash linkage, and
+      verifies Ed25519 head signatures against the pinned public key. It is a third independent
+      implementation of the log format.
+    </p>
+    <div class="row">
+      <button type="button" class="primary" id="verify-btn">Verify the whole ledger</button>
+    </div>
+    <p id="verify-status" class="muted" aria-live="polite" style="margin-top: 1rem;"></p>
+    <pre id="verify-out" class="pre-block" hidden><code></code></pre>
+    <noscript>
+      <p>
+        JavaScript is required for the in-browser verifier. Use the CLI method below, which needs
+        no browser features.
+      </p>
+    </noscript>
+  </section>
+
+  <section class="section">
+    <h2>Verify with the CLI</h2>
+    <p class="muted">Exact command from the Refledger README.</p>
+    <div class="pre-block">
+      <button class="copy-btn" type="button" data-copy={cli}>Copy</button>
+      <pre><code>{cli}</code></pre>
+    </div>
+  </section>
+
+  <script>
+    import { verifyLedger, PINNED_PUBKEY, ed25519Available } from '../lib/verify';
+
+    const btn = document.getElementById('verify-btn');
+    const status = document.getElementById('verify-status');
+    const out = document.getElementById('verify-out');
+    const code = out?.querySelector('code');
+
+    async function loadJsonl(url: string): Promise<any[]> {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+      const text = await res.text();
+      return text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+    }
+
+    btn?.addEventListener('click', async () => {
+      if (!status || !out || !code || !btn) return;
+      btn.setAttribute('disabled', 'true');
+      status.textContent = 'Loading published log files…';
+      out.hidden = true;
+
+      if (!ed25519Available()) {
+        status.textContent =
+          'Ed25519 is not available in this browser. Use the CLI verifier below.';
+        btn.removeAttribute('disabled');
+        return;
+      }
+
+      try {
+        const manifest = await fetch('/verify/manifest.json').then((r) => r.json());
+        const entryLists = await Promise.all(
+          (manifest.logFiles as string[]).map((f) => loadJsonl(f)),
+        );
+        const entries = entryLists.flat().sort((a, b) => a.seq - b.seq);
+        const heads = await loadJsonl(manifest.headsFile);
+
+        status.textContent = `Checking ${entries.length} entries…`;
+        const result = await verifyLedger({
+          entries,
+          heads,
+          pinnedPubkey: PINNED_PUBKEY,
+          onProgress: (p) => {
+            status.textContent = `${p.phase}: ${p.done}/${p.total}`;
+          },
+        });
+
+        code.textContent = result.lines.join('\n');
+        out.hidden = false;
+        status.textContent = result.ok
+          ? 'All checks ran. Verdict below.'
+          : 'Verification failed. See details below.';
+      } catch (err) {
+        status.textContent = `Could not complete verification: ${(err as Error).message}`;
+      } finally {
+        btn.removeAttribute('disabled');
+      }
+    });
+
+    document.querySelectorAll('[data-copy]').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const text = el.getAttribute('data-copy') || '';
+        try {
+          await navigator.clipboard.writeText(text);
+          el.textContent = 'Copied';
+          setTimeout(() => {
+            el.textContent = 'Copy';
+          }, 1500);
+        } catch {
+          el.textContent = 'Copy failed';
+        }
+      });
+    });
+  </script>
+</BaseLayout>

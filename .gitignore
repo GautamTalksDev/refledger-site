@@ -1,0 +1,25 @@
+# build output
+dist/
+.astro/
+
+# deps
+node_modules/
+
+# local ledger clones (refreshed by npm run fetch-data)
+.cache/
+
+# test artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+
+# env
+.env
+.env.*
+
+# OS
+.DS_Store
+
+# Generated at build (npm run prebuild)
+public/verify/
+public/og/

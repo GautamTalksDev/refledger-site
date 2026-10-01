@@ -1,0 +1,113 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData, shortSha } from '../data';
+
+const data = getSiteData();
+const rows = data.repos
+  .filter((r) => r.active)
+  .map((r) => {
+    const bindingCount = r.tags.reduce((n, t) => n + t.events.length, 0);
+    const last = r.tags
+      .flatMap((t) => t.events)
+      .map((e) => e.recorded_at)
+      .sort()
+      .at(-1);
+    return {
+      repo: r.repo,
+      canary: r.canary,
+      tags: r.tags.length,
+      lastMove: last ?? null,
+      watchedSince: r.watched_since,
+      lines: bindingCount,
+    };
+  });
+---
+
+<BaseLayout
+  title="Actions · Refledger"
+  description="Every watched GitHub Action repository in the Refledger population."
+  canonicalPath="/actions"
+>
+  <h1>Actions</h1>
+  <p class="lede">Every repository we watch. Search filters the table in your browser.</p>
+
+  <label class="sr-only" for="actions-filter">Filter repositories</label>
+  <input
+    id="actions-filter"
+    type="search"
+    placeholder="Filter by name"
+    style="max-width: 24rem; margin-bottom: 1rem;"
+  />
+
+  <div class="table-wrap">
+    <table class="data" id="actions-table">
+      <thead>
+        <tr>
+          <th scope="col"><button type="button" data-sort="repo">Name</button></th>
+          <th scope="col"><button type="button" data-sort="tags">Tags watched</button></th>
+          <th scope="col"><button type="button" data-sort="last">Last move</button></th>
+          <th scope="col"><button type="button" data-sort="since">Watched since</button></th>
+          <th scope="col"><button type="button" data-sort="lines">Lines of history</button></th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((r) => (
+            <tr data-name={r.repo.toLowerCase()}>
+              <td>
+                <a href={`/a/${r.repo}`}>{r.repo}</a>
+                {r.canary && <span class="pill canary">Canary</span>}
+              </td>
+              <td data-v={r.tags}>{r.tags}</td>
+              <td data-v={r.lastMove ?? ''}>{r.lastMove ?? 'none'}</td>
+              <td data-v={r.watchedSince ?? ''}>{r.watchedSince ?? 'unknown'}</td>
+              <td data-v={r.lines}>{r.lines}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const input = document.getElementById('actions-filter');
+      const table = document.getElementById('actions-table');
+      if (!input || !table) return;
+      const tbody = table.tBodies[0];
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        for (const row of tbody.rows) {
+          const name = row.getAttribute('data-name') || '';
+          row.hidden = q !== '' && !name.includes(q);
+        }
+      });
+      let asc = true;
+      let lastKey = '';
+      table.querySelectorAll('[data-sort]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-sort');
+          if (key === lastKey) asc = !asc;
+          else {
+            asc = true;
+            lastKey = key;
+          }
+          const rows = [...tbody.rows];
+          const idx = { repo: 0, tags: 1, last: 2, since: 3, lines: 4 }[key];
+          rows.sort((a, b) => {
+            const av = a.cells[idx].getAttribute('data-v') ?? a.cells[idx].textContent;
+            const bv = b.cells[idx].getAttribute('data-v') ?? b.cells[idx].textContent;
+            const an = Number(av);
+            const bn = Number(bv);
+            let cmp =
+              av !== '' && bv !== '' && !Number.isNaN(an) && !Number.isNaN(bn)
+                ? an - bn
+                : String(av).localeCompare(String(bv));
+            return asc ? cmp : -cmp;
+          });
+          rows.forEach((r) => tbody.appendChild(r));
+        });
+      });
+    })();
+  </script>
+</BaseLayout>

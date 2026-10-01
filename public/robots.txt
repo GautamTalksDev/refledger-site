@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://refledger.gautamkhosla.com/sitemap.xml

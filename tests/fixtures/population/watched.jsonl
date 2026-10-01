@@ -1,0 +1,7 @@
+{"repo":"actions/checkout","added_at":"2026-09-28T00:00:00Z","reason":{"type":"seed","source":{"type":"official_org","org":"actions"}},"active":true}
+{"repo":"actions/setup-node","added_at":"2026-09-28T00:00:00Z","reason":{"type":"seed","source":{"type":"official_org","org":"actions"}},"active":true}
+{"repo":"actions/setup-python","added_at":"2026-09-28T00:00:00Z","reason":{"type":"seed","source":{"type":"official_org","org":"actions"}},"active":true}
+{"repo":"actions/setup-go","added_at":"2026-09-28T00:00:00Z","reason":{"type":"seed","source":{"type":"official_org","org":"actions"}},"active":true}
+{"repo":"actions/setup-java","added_at":"2026-09-28T00:00:00Z","reason":{"type":"seed","source":{"type":"official_org","org":"actions"}},"active":true}
+{"repo":"actions/attest","added_at":"2026-09-28T00:00:00Z","reason":{"type":"transitive","via_repo":"actions/attest-build-provenance","via_commit":"tag-commit-expand"},"active":true}
+{"repo":"GautamTalksDev/canary","added_at":"2026-09-28T00:00:00Z","reason":{"type":"manual"},"active":true,"note":"canary"}

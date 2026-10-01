@@ -1,0 +1,163 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import LookupForm from '../components/LookupForm.astro';
+import TraceWall from '../components/TraceWall.astro';
+import {
+  ecosystemSentence,
+  getSiteData,
+  isCanary,
+  movedInLastDays,
+  shortSha,
+} from '../data';
+
+const data = getSiteData();
+const recent = movedInLastDays(7, true);
+const canary = data.reposByName.get('GautamTalksDev/canary') ?? null;
+const watchedNames = data.repos.filter((r) => !r.canary).map((r) => r.repo);
+const sentence = ecosystemSentence();
+const rekorUrl = data.latestRekor
+  ? `https://search.sigstore.dev/?logIndex=${data.latestRekor.log_index}`
+  : null;
+---
+
+<BaseLayout
+  title="Refledger"
+  description="A tag is a pointer. We write down where it points. A public, signed record of GitHub Action tag movements."
+>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Dataset',
+      name: 'Refledger',
+      description:
+        'A public, signed, hash-chained record of what GitHub Action tags pointed at, and when they moved.',
+      url: 'https://refledger.gautamkhosla.com',
+      license: 'https://www.apache.org/licenses/LICENSE-2.0',
+      creator: { '@type': 'Person', name: 'Gautam Khosla' },
+    })} />
+  </Fragment>
+
+  <section class="section" style="margin-top: 1rem;">
+    <h1>A tag is a pointer. We write down where it points.</h1>
+    <p class="subline">
+      Refledger is a public, signed record of what GitHub Action tags pointed at, and when they
+      moved. You can verify every entry yourself.
+    </p>
+    <LookupForm />
+    <datalist id="watched-repos">
+      {watchedNames.map((name) => <option value={name} />)}
+    </datalist>
+  </section>
+
+  <section class="section">
+    <TraceWall
+      buildTime={data.buildTime}
+      genesisAt={data.genesisAt}
+      wallRepos={data.wallDefaultRepos}
+      allRepos={data.repos}
+      canary={canary}
+      events={data.traceEvents}
+      seals={data.seals}
+    />
+    <p style="margin-top: 1rem;">{sentence}</p>
+  </section>
+
+  <section class="section">
+    <h2>Moved in the last 7 days</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">When</th>
+            <th scope="col">Repository</th>
+            <th scope="col">Tag</th>
+            <th scope="col">Event</th>
+            <th scope="col">To</th>
+            <th scope="col">Entry</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            recent.length === 0 ? (
+              <tr>
+                <td colspan="6">No tag movements in the last 7 days.</td>
+              </tr>
+            ) : (
+              recent.map((ev) => (
+                <tr>
+                  <td>{ev.recorded_at}</td>
+                  <td>
+                    <a href={`/a/${ev.repo}`}>{ev.repo}</a>
+                    {ev.isCanary && <span class="pill canary">Canary</span>}
+                  </td>
+                  <td class="mono">{ev.tag}</td>
+                  <td class={ev.severity === 'high' ? 'severity-high' : undefined}>{ev.event}</td>
+                  <td>
+                    {ev.toCommit ? (
+                      <a
+                        class="mono"
+                        href={`https://github.com/${ev.repo}/commit/${ev.toCommit}`}
+                        title={ev.toCommit}
+                      >
+                        {shortSha(ev.toCommit)}
+                      </a>
+                    ) : (
+                      'n/a'
+                    )}
+                  </td>
+                  <td>
+                    <a class="mono" href={`/e/${ev.seq}`}>
+                      seq {ev.seq}
+                    </a>
+                  </td>
+                </tr>
+              ))
+            )
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="panel-dark">
+      <h2>The record, checked</h2>
+      <div class="stack">
+        <p>Chain length: <span class="mono">{data.chainLength}</span> entries</p>
+        <p>
+          Signing key prefix: <span class="mono">{data.signingKeyPrefix}…</span>
+        </p>
+        <p>
+          Latest Rekor entry:{' '}
+          {
+            data.latestRekor && rekorUrl ? (
+              <a class="mono" href={rekorUrl}>{data.latestRekor.log_index}</a>
+            ) : (
+              <span class="muted">none yet</span>
+            )
+          }
+        </p>
+        <p class="muted">
+          Gaps from signed digests: {data.digestGapTotals.skipped} skipped,{' '}
+          {data.digestGapTotals.failed} failed polls
+        </p>
+        <div class="row">
+          <a class="button primary" href="/verify">Verify the ledger</a>
+          <a href="/incidents">What went wrong, on the record</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section prose">
+    <h2>Pinning to a tag does not pin the code</h2>
+    <p>
+      A Git tag is a movable pointer. Workflows that say <code>uses: owner/repo@v4</code> resolve
+      whatever commit that tag names today. When the tag moves, the code your workflow runs moves
+      with it. Refledger writes down each binding we observe so you can see what changed, and when.
+    </p>
+    <p>
+      <a href="/why-pinning-tags-does-not-work">Why pinning tags does not work</a>
+    </p>
+  </section>
+</BaseLayout>

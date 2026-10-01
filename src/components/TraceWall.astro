@@ -1,0 +1,156 @@
+---
+import { buildWallModel, renderWallSvg, wallTableRows, type WallRange } from '../lib/wall';
+import type { RepoView, Seal, TraceEvent } from '../data';
+
+interface Props {
+  range?: WallRange;
+  buildTime: string;
+  genesisAt: string;
+  wallRepos: string[];
+  allRepos: RepoView[];
+  canary: RepoView | null;
+  events: TraceEvent[];
+  seals: Seal[];
+  idPrefix?: string;
+  showToolbar?: boolean;
+}
+
+const {
+  range = 'genesis',
+  buildTime,
+  genesisAt,
+  wallRepos,
+  allRepos,
+  canary,
+  events,
+  seals,
+  idPrefix = 'wall',
+  showToolbar = true,
+} = Astro.props;
+
+const ranges: WallRange[] = ['genesis', '7d', '30d'];
+const models = Object.fromEntries(
+  ranges.map((r) => [
+    r,
+    buildWallModel({
+      range: r,
+      buildTime,
+      genesisAt,
+      wallRepos,
+      allRepos,
+      canary,
+      events,
+      seals,
+    }),
+  ]),
+) as Record<WallRange, ReturnType<typeof buildWallModel>>;
+
+const active = models[range];
+const tableRows = wallTableRows(active);
+---
+
+<section class="wall-panel" aria-labelledby={`${idPrefix}-heading`}>
+  <div class="row" style="justify-content: space-between; margin-bottom: 0.5rem;">
+    <h2 id={`${idPrefix}-heading`}>The trace wall</h2>
+    <a href={`#${idPrefix}-table`}>View as table</a>
+  </div>
+
+  {
+    showToolbar && (
+      <div class="wall-toolbar" role="group" aria-label="Wall time range">
+        {ranges.map((r) => (
+          <button
+            type="button"
+            data-wall-range={r}
+            aria-pressed={r === range ? 'true' : 'false'}
+          >
+            {r === 'genesis' ? 'Since genesis' : r === '7d' ? '7 days' : '30 days'}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  {
+    ranges.map((r) => (
+      <div
+        class="wall-svg-slot"
+        data-range={r}
+        hidden={r !== range}
+        set:html={renderWallSvg(models[r])}
+      />
+    ))
+  }
+
+  {
+    active.hiddenUnchanged > 0 && (
+      <p class="muted" style="margin: 0.75rem 0 0;">
+        <a href="/actions"
+          >{active.hiddenUnchanged} more repositories, every one unchanged since genesis</a
+        >
+      </p>
+    )
+  }
+
+  <div id={`${idPrefix}-table`} class="table-wrap" style="margin-top: 1rem;">
+    <table class="data">
+      <caption class="sr-only">Trace wall events as a table</caption>
+      <thead>
+        <tr>
+          <th scope="col">Repository</th>
+          <th scope="col">Tag</th>
+          <th scope="col">Event</th>
+          <th scope="col">Recorded at</th>
+          <th scope="col">Entry</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          tableRows.length === 0 ? (
+            <tr>
+              <td colspan="5">No tag movements in this range.</td>
+            </tr>
+          ) : (
+            tableRows.map((row) => (
+              <tr>
+                <td>
+                  <a href={`/a/${row.repo}`}>{row.repo}</a>
+                </td>
+                <td class="mono">{row.tag}</td>
+                <td>{row.event}</td>
+                <td>{row.at}</td>
+                <td>
+                  <a class="mono" href={`/e/${row.seq}`}>
+                    seq {row.seq}
+                  </a>
+                </td>
+              </tr>
+            ))
+          )
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{
+  showToolbar && (
+    <script is:inline>
+      (() => {
+        const buttons = document.querySelectorAll('[data-wall-range]');
+        const slots = document.querySelectorAll('.wall-svg-slot');
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const range = btn.getAttribute('data-wall-range');
+            buttons.forEach((b) =>
+              b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'),
+            );
+            slots.forEach((slot) => {
+              slot.hidden = slot.getAttribute('data-range') !== range;
+            });
+          });
+        });
+      })();
+    </script>
+  )
+}

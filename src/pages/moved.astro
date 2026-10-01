@@ -1,0 +1,77 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData, shortSha } from '../data';
+
+const data = getSiteData();
+const includeCanary = Astro.url.searchParams.get('canary') === '1';
+const events = data.traceEvents.filter((e) => includeCanary || !e.isCanary);
+---
+
+<BaseLayout
+  title="Moved · Refledger"
+  description="Full feed of recorded GitHub Action tag movements."
+  canonicalPath="/moved"
+>
+  <h1>Moved</h1>
+  <p class="lede">
+    Ecosystem movements by default. Canary events are labelled and excluded from ecosystem totals.
+  </p>
+
+  <form method="get" class="row" style="margin-bottom: 1rem;">
+    <label>
+      <input type="checkbox" name="canary" value="1" checked={includeCanary} onchange="this.form.submit()" />
+      Include canary
+    </label>
+    <a href="/moved.xml">RSS (ecosystem only)</a>
+  </form>
+
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Repository</th>
+          <th scope="col">Tag</th>
+          <th scope="col">Event</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Entry</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          events.map((ev) => (
+            <tr>
+              <td>{ev.recorded_at}</td>
+              <td>
+                <a href={`/a/${ev.repo}`}>{ev.repo}</a>
+                {ev.isCanary && <span class="pill canary">Canary</span>}
+              </td>
+              <td class="mono">{ev.tag}</td>
+              <td class={ev.severity === 'high' ? 'severity-high' : undefined}>{ev.event}</td>
+              <td class="mono" title={ev.fromCommit}>{shortSha(ev.fromCommit)}</td>
+              <td>
+                {ev.toCommit ? (
+                  <a
+                    class="mono"
+                    href={`https://github.com/${ev.repo}/commit/${ev.toCommit}`}
+                    title={ev.toCommit}
+                  >
+                    {shortSha(ev.toCommit)}
+                  </a>
+                ) : (
+                  ''
+                )}
+              </td>
+              <td>
+                <a class="mono" href={`/e/${ev.seq}`}>
+                  seq {ev.seq}
+                </a>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </div>
+</BaseLayout>
