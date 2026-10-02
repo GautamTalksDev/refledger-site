@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData } from '../data';
+import { fmtLedgerAsOf } from '../lib/format';
+import { EXAMPLE_FILES } from '../lib/check-workflow';
+
+const data = getSiteData();
+const tipSeq = Math.max(0, data.chainLength - 1);
+const sample = EXAMPLE_FILES[0].text;
+---
+
+<BaseLayout
+  title="Paste a workflow · Refledger"
+  description="Paste a GitHub Actions workflow file. It never leaves your browser."
+  canonicalPath="/paste"
+  nav="home"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
+>
+  <div class="wrap narrow" style="padding-top:72px" id="paste-shell">
+    <form data-form="paste">
+      <h1 class="h2" tabindex="-1">Paste a workflow file.</h1>
+      <p class="lede" style="margin-top:18px">
+        Private repository, or just one file? Paste it here. It never leaves your
+        browser.
+      </p>
+      <label for="yaml" class="lbl" style="display:block;margin-top:28px"
+        >Workflow YAML</label
+      >
+      <textarea id="yaml" class="yaml" spellcheck="false" style="margin-top:8px"
+        >{sample}</textarea
+      >
+      <div class="row" style="margin-top:16px">
+        <button type="submit" class="btn b-blue">Check this file</button>
+        <a href="/" class="btn b-line">Back</a>
+      </div>
+    </form>
+  </div>
+  <div id="check-root"></div>
+  <script>
+    import { bootPastePage } from '../scripts/check-app';
+    import type { PublicLedgerPayload } from '../lib/ledger-lookup';
+    const payload = (await fetch('/api/v1/check-ledger.json').then((r) =>
+      r.json(),
+    )) as PublicLedgerPayload;
+    bootPastePage(payload);
+  </script>
+</BaseLayout>

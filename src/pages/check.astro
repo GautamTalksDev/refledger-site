@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData } from '../data';
+import { fmtLedgerAsOf } from '../lib/format';
+
+const data = getSiteData();
+const tipSeq = Math.max(0, data.chainLength - 1);
+---
+
+<BaseLayout
+  title="Your results · Refledger"
+  description="Results of checking a public GitHub repository's workflow actions against the Refledger record."
+  canonicalPath="/check"
+  nav="home"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
+>
+  <div id="check-root"></div>
+  <script>
+    import { bootCheckPage } from '../scripts/check-app';
+    import type { PublicLedgerPayload } from '../lib/ledger-lookup';
+    const payload = (await fetch('/api/v1/check-ledger.json').then((r) =>
+      r.json(),
+    )) as PublicLedgerPayload;
+    bootCheckPage(payload);
+  </script>
+</BaseLayout>

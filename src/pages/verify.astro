@@ -1,63 +1,108 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData } from '../data';
 import { PINNED_PUBKEY } from '../lib/verify';
+import { fmtLedgerAsOf } from '../lib/format';
+
+const data = getSiteData();
+const entryCount = data.chainLength;
+const tipSeq = Math.max(0, entryCount - 1);
 
 const cli = `git clone https://github.com/GautamTalksDev/refledger.git
 cd refledger
 cargo run --locked --release -p refledger-verify -- data/log --strict \\
   --pubkey ${PINNED_PUBKEY}`;
+
+const cliShort = `cargo run --locked --release -p refledger-verify -- data/log --strict --pubkey ${PINNED_PUBKEY}`;
 ---
 
 <BaseLayout
-  title="Verify · Refledger"
-  description="Verify the Refledger hash chain and signed heads in your browser or with the CLI."
+  title="Verify the ledger · Refledger"
+  description="Replay every entry, recompute every hash, and check every signature in your browser or with the CLI."
   canonicalPath="/verify"
+  nav="verify"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
 >
-  <h1>Verify</h1>
-  <p class="lede">
-    Do not take our word for it. Replay the chain and check every signature yourself.
-  </p>
-
-  <section class="section">
-    <h2>Verify in your browser</h2>
-    <p class="muted">
-      This page re-canonicalises every entry, recomputes SHA-256, checks prev_hash linkage, and
-      verifies Ed25519 head signatures against the pinned public key. It is a third independent
-      implementation of the log format.
+  <div class="wrap" style="padding-top:72px">
+    <h1 class="h1" tabindex="-1">
+      Don't trust us.<br /><span style="color:var(--blue)">Check us.</span>
+    </h1>
+    <p class="lede" style="margin-top:22px;max-width:640px">
+      One click replays every entry in the ledger, recomputes every hash and checks every
+      signature, in your browser. Nothing to install, nobody to trust.
     </p>
-    <div class="row">
-      <button type="button" class="primary" id="verify-btn">Verify the whole ledger</button>
-    </div>
-    <div id="verify-theatre" class="verify-chain" aria-hidden="true"></div>
-    <p id="verify-status" class="muted" aria-live="polite" style="margin-top: 1rem;"></p>
-    <pre id="verify-out" class="pre-block" hidden><code></code></pre>
-    <p id="verify-share" class="mono" hidden></p>
-    <noscript>
-      <p>
-        JavaScript is required for the in-browser verifier. Use the CLI method below, which needs
-        no browser features.
-      </p>
-    </noscript>
-  </section>
 
-  <section class="section">
-    <h2>Verify with the CLI</h2>
-    <p class="muted">Exact command from the Refledger README.</p>
-    <div class="pre-block">
-      <button class="copy-btn" type="button" data-copy={cli}>Copy</button>
-      <pre><code>{cli}</code></pre>
+    <div class="night" style="margin-top:44px;padding:32px">
+      <div class="row" style="justify-content:space-between">
+        <button type="button" class="btn b-light" data-act="verify" id="vbtn"
+          >Verify the whole ledger</button
+        >
+        <span
+          class="ins"
+          id="vstatus"
+          aria-live="polite"
+          style="font-size:15px;color:var(--nmuted)">{entryCount} entries ready.</span
+        >
+      </div>
+      <div class="chain" aria-hidden="true" style="margin-top:28px" id="vchain"></div>
+      <div id="vresult"></div>
     </div>
-  </section>
 
+    <section class="grid12" style="margin-top:80px">
+      <div class="span5">
+        <h2 class="h3">Prefer your own terminal?</h2>
+        <p style="margin:10px 0 0;color:var(--ink2)">
+          The command line verifier shares no code with the program that writes the ledger.
+          That is the point: two independent programs agreeing is evidence. One agreeing with
+          itself is not.
+        </p>
+      </div>
+      <div class="span7 paper" style="padding:22px 24px">
+        <div class="row" style="justify-content:space-between">
+          <span class="lbl">From a clone of the repository</span>
+          <button type="button" class="btn b-line small" data-act="copycli">Copy</button>
+        </div>
+        <pre
+          class="mono"
+          style="margin:12px 0 0;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-all"
+          ><code id="cli">{cliShort}</code></pre
+        >
+      </div>
+    </section>
+  </div>
+
+  <script define:vars={{ cli, entryCount }} is:inline>
+    window.__REFLEDGER_VERIFY_CLI__ = cli;
+    window.__REFLEDGER_ENTRY_COUNT__ = entryCount;
+  </script>
   <script>
-    import { verifyLedger, PINNED_PUBKEY, ed25519Available } from '../lib/verify';
+    import {
+      verifyLedger,
+      PINNED_PUBKEY,
+      ed25519Available,
+    } from '../lib/verify';
 
-    const btn = document.getElementById('verify-btn');
-    const status = document.getElementById('verify-status');
-    const out = document.getElementById('verify-out');
-    const code = out?.querySelector('code');
-    const theatre = document.getElementById('verify-theatre');
-    const share = document.getElementById('verify-share');
+    const btn = document.getElementById('vbtn') as HTMLButtonElement | null;
+    const status = document.getElementById('vstatus');
+    const chain = document.getElementById('vchain');
+    const result = document.getElementById('vresult');
+    const fullCli = (window as any).__REFLEDGER_VERIFY_CLI__ as string;
+
+    function buildCells(n: number): void {
+      if (!chain) return;
+      chain.innerHTML = '';
+      const cols = 16;
+      const total = Math.max(cols, Math.ceil(n / cols) * cols);
+      for (let i = 0; i < total; i++) {
+        const span = document.createElement('span');
+        span.dataset.c = String(i);
+        if (i >= n) span.style.visibility = 'hidden';
+        chain.appendChild(span);
+      }
+    }
+
+    buildCells((window as any).__REFLEDGER_ENTRY_COUNT__ ?? 64);
 
     async function loadJsonl(url: string): Promise<any[]> {
       const res = await fetch(url);
@@ -70,100 +115,96 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
         .map((l) => JSON.parse(l));
     }
 
+    function toast(msg: string): void {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.setAttribute('role', 'status');
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 2200);
+    }
+
+    document.querySelectorAll('[data-act="copycli"]').forEach((el) => {
+      el.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(fullCli);
+          toast('Command copied');
+        } catch {
+          toast('Select the text and copy it');
+        }
+      });
+    });
+
     btn?.addEventListener('click', async () => {
-      if (!status || !out || !code || !btn) return;
-      btn.setAttribute('disabled', 'true');
-      status.textContent = 'Loading published log files…';
-      out.hidden = true;
-      if (share) share.hidden = true;
-      if (theatre) {
-        theatre.innerHTML = '';
-        theatre.setAttribute('aria-hidden', 'false');
-      }
+      if (!status || !btn || !chain || !result) return;
+      btn.disabled = true;
+      result.innerHTML = '';
+      chain.querySelectorAll('span').forEach((c) => {
+        c.className = '';
+      });
 
       if (!ed25519Available()) {
         status.textContent =
           'Ed25519 is not available in this browser. Use the CLI verifier below.';
-        btn.removeAttribute('disabled');
+        btn.disabled = false;
         return;
       }
 
       try {
+        status.textContent = 'Loading published log files…';
         const manifest = await fetch('/verify/manifest.json').then((r) => r.json());
         const entryLists = await Promise.all(
           (manifest.logFiles as string[]).map((f) => loadJsonl(f)),
         );
         const entries = entryLists.flat().sort((a, b) => a.seq - b.seq);
         const heads = await loadJsonl(manifest.headsFile);
+        buildCells(entries.length);
 
-        if (theatre) {
-          const n = Math.min(entries.length, 120);
-          for (let i = 0; i < n; i++) {
-            const b = document.createElement('div');
-            b.className = 'verify-block';
-            b.title = `seq ${entries[i].seq}`;
-            theatre.appendChild(b);
-          }
-        }
+        const digestSeqs = new Set(
+          entries.filter((e) => e.event === 'observation_digest').map((e) => e.seq),
+        );
 
         status.textContent = `Checking ${entries.length} entries…`;
-        const result = await verifyLedger({
+        const verifyResult = await verifyLedger({
           entries,
           heads,
           pinnedPubkey: PINNED_PUBKEY,
           onProgress: (p) => {
-            status.textContent = `${p.phase}: ${p.done}/${p.total}`;
-            if (theatre && p.phase === 'chain') {
-              const blocks = theatre.querySelectorAll('.verify-block');
-              if (p.done > 0 && p.done <= blocks.length) {
-                blocks[p.done - 1]?.classList.add('is-ok');
+            if (p.phase === 'chain') {
+              status.textContent = `Checking entry ${p.done} of ${p.total}`;
+              const cells = chain.querySelectorAll('span');
+              if (p.done > 0 && p.done <= cells.length) {
+                const idx = p.done - 1;
+                const seq = entries[idx]?.seq;
+                cells[idx].className = digestSeqs.has(seq) ? 'seal' : 'on';
               }
+            } else {
+              status.textContent = `Checking signed heads (${p.done}/${p.total})…`;
             }
           },
         });
 
-        if (theatre && !result.ok) {
-          theatre.querySelectorAll('.verify-block').forEach((b) => {
-            b.classList.remove('is-ok');
-            b.classList.add('is-fail');
+        if (verifyResult.ok) {
+          chain.querySelectorAll('span').forEach((c, i) => {
+            if (i >= entries.length) return;
+            const seq = entries[i]?.seq;
+            c.className = digestSeqs.has(seq) ? 'seal' : 'on';
           });
-        } else if (theatre && result.ok) {
-          theatre.querySelectorAll('.verify-block').forEach((b) => b.classList.add('is-ok'));
+          status.textContent = 'Every hash matches. Every signature checks.';
+          btn.textContent = 'Verify again';
+        } else {
+          chain.querySelectorAll('span').forEach((c) => {
+            c.className = 'on';
+          });
+          status.textContent = 'Verification failed. See details below.';
         }
 
-        code.textContent = result.lines.join('\n');
-        out.hidden = false;
-        status.textContent = result.ok
-          ? 'All checks ran. Verdict below.'
-          : 'Verification failed. See details below.';
-        if (share && result.ok) {
-          const hhmm = new Date().toISOString().slice(11, 16);
-          share.textContent = `Verified Refledger entries 0 to ${entries.length - 1} against key ${PINNED_PUBKEY.slice(0, 8)} at ${hhmm} UTC`;
-          share.hidden = false;
-        }
+        result.innerHTML = `<div class="rise mono" style="margin-top:26px;padding:20px 22px;border-radius:14px;background:var(--night2);font-size:14.5px;line-height:1.9">${verifyResult.lines.map((l) => l.replace(/</g, '&lt;')).join('<br>')}</div>`;
       } catch (err) {
         status.textContent = `Could not complete verification: ${(err as Error).message}`;
-        if (theatre) {
-          theatre.querySelectorAll('.verify-block').forEach((b) => b.classList.add('is-fail'));
-        }
       } finally {
-        btn.removeAttribute('disabled');
+        btn.disabled = false;
       }
-    });
-
-    document.querySelectorAll('[data-copy]').forEach((el) => {
-      el.addEventListener('click', async () => {
-        const text = el.getAttribute('data-copy') || '';
-        try {
-          await navigator.clipboard.writeText(text);
-          el.textContent = 'Copied';
-          setTimeout(() => {
-            el.textContent = 'Copy';
-          }, 1500);
-        } catch {
-          el.textContent = 'Copy failed';
-        }
-      });
     });
   </script>
 </BaseLayout>

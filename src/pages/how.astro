@@ -1,0 +1,294 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getSiteData } from '../data';
+import { buildIndex } from '../lib/api-v1';
+import { fmtLedgerAsOf } from '../lib/format';
+import type { HowPagePayload } from '../scripts/how-app';
+
+const data = getSiteData();
+const pop = buildIndex(data).population;
+const genesisMs = new Date(data.genesisAt).getTime();
+const nowMs = new Date(data.buildTime).getTime();
+const totalHours = (nowMs - genesisMs) / 3_600_000;
+
+function toHours(iso: string): number {
+  return (new Date(iso).getTime() - genesisMs) / 3_600_000;
+}
+
+const wallRows = data.wallDefaultRepos.slice(0, 7);
+const firstRepo = wallRows[0];
+
+let firstRowMoveH: number | null = null;
+if (firstRepo) {
+  const moves = data.traceEvents
+    .filter((e) => e.repo === firstRepo && !e.isCanary && e.event === 'move')
+    .sort((a, b) => (a.recorded_at < b.recorded_at ? -1 : 1));
+  if (moves.length) firstRowMoveH = toHours(moves[0].recorded_at);
+}
+
+let gapStartH: number | null = null;
+let gapEndH: number | null = null;
+let bestGap = 0;
+for (const g of data.gapBands) {
+  if (g.kind !== 'PollerDown' && g.label !== 'poller down') continue;
+  const dur =
+    new Date(g.end).getTime() - new Date(g.start).getTime();
+  if (dur > bestGap) {
+    bestGap = dur;
+    gapStartH = toHours(g.start);
+    gapEndH = toHours(g.end);
+  }
+}
+
+const canaryDotHs = data.traceEvents
+  .filter((e) => e.isCanary)
+  .map((e) => toHours(e.recorded_at))
+  .sort((a, b) => a - b);
+
+const events: HowPagePayload['events'] = [{ h: 0, text: 'Genesis. Watching begins.' }];
+
+for (const seal of data.seals) {
+  const at =
+    seal.head?.head.recorded_at ??
+    `${seal.digest.observation_digest.date}T12:00:00.000Z`;
+  events.push({ h: toHours(at), text: 'Day sealed and witnessed.' });
+}
+
+for (const g of data.gapBands) {
+  if (g.kind === 'PollerDown' || g.label === 'poller down') {
+    events.push({
+      h: toHours(g.start),
+      text: 'Our poller went down. The gap is recorded, not hidden.',
+    });
+    events.push({
+      h: toHours(g.end),
+      text: 'Back up. Missed moves recorded on recovery.',
+    });
+  }
+}
+
+for (const e of [...data.traceEvents].sort((a, b) =>
+  a.recorded_at < b.recorded_at ? -1 : 1,
+)) {
+  const label = e.isCanary ? 'Canary test: ' : '';
+  const what = e.whatChanged ?? e.event;
+  events.push({
+    h: toHours(e.recorded_at),
+    text: `${label}${what.charAt(0).toLowerCase() + what.slice(1)} (${e.repo} ${e.tag}).`,
+  });
+}
+
+events.push({ h: totalHours, text: 'Now.' });
+events.sort((a, b) => a.h - b.h);
+
+const payload: HowPagePayload = {
+  genesisMs,
+  nowMs,
+  wallRows,
+  events,
+  gapStartH,
+  gapEndH,
+  firstRowMoveH,
+  canaryDotHs,
+  actionCount: pop.action_count,
+  repositoryCount: pop.repository_count,
+};
+
+const tipSeq = Math.max(0, data.chainLength - 1);
+---
+
+<BaseLayout
+  title="How it works · Refledger"
+  description="Move a tag, watch the poller, and see how the signed hash chain works."
+  canonicalPath="/how"
+  nav="how"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
+>
+  <div class="wrap" style="padding-top:72px">
+    <h1 class="h1" tabindex="-1">How it works.</h1>
+    <p class="lede" style="margin-top:20px;max-width:620px">
+      Three things to try. Each one takes ten seconds, and each one is exactly what
+      Refledger does.
+    </p>
+
+    <div class="ledgerrow" style="margin-top:80px" data-sec="1">
+      <div class="stamp" data-stamp="1">
+        <div class="n">1</div>
+        <div class="h" data-prev></div>
+        <div class="h me" data-hash></div>
+      </div>
+      <div>
+        <h2 class="h2" data-text>A tag is a pointer. Go on, move it.</h2>
+        <p class="lede" style="margin-top:18px;max-width:600px" data-text>
+          This is the whole attack. It takes one second, and nothing in your repository
+          changes.
+        </p>
+        <div class="card" style="margin-top:32px;overflow:hidden">
+          <div class="grid12" style="gap:0">
+            <div class="span7" style="padding:28px 28px 8px">
+              <svg
+                viewBox="0 0 640 200"
+                style="display:block;width:100%;height:auto"
+                role="img"
+                aria-live="polite"
+                id="toy-svg"></svg>
+            </div>
+            <div class="span5 night" style="margin:14px;padding:22px;border-radius:16px">
+              <div class="lbl">Your next CI run</div>
+              <div class="mono" id="toy-run" style="margin-top:10px;font-size:13px;line-height:1.9">
+              </div>
+            </div>
+          </div>
+          <div
+            class="row"
+            style="justify-content:space-between;padding:16px 28px 24px;border-top:1px solid var(--rule2)"
+          >
+            <p aria-live="polite" id="toy-msg" style="margin:0;max-width:520px;color:var(--ink2)">
+            </p>
+            <div class="row" id="toy-btns"></div>
+          </div>
+          <div
+            style="border-top:1px solid var(--rule2);background:var(--card);padding:16px 28px 20px"
+          >
+            <div class="lbl">The ledger</div>
+            <div id="toy-ledger" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ledgerrow" style="margin-top:140px" data-sec="2">
+      <div class="stamp" data-stamp="2">
+        <div class="n">2</div>
+        <div class="h" data-prev></div>
+        <div class="h me" data-hash></div>
+      </div>
+      <div>
+        <div
+          class="row"
+          style="justify-content:space-between;align-items:flex-end;gap:24px"
+        >
+          <div>
+            <h2 class="h2" data-text>We watch for it, every five minutes.</h2>
+            <p class="lede" style="margin-top:18px;max-width:600px" data-text id="how-wall-lede">
+            </p>
+          </div>
+          <div style="text-align:right">
+            <div class="lbl">Instrument clock, UTC</div>
+            <div
+              class="ins"
+              id="clock"
+              aria-live="polite"
+              style="font-size:40px;font-weight:700;font-variant-numeric:tabular-nums"
+            >
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:28px;padding:22px 22px 16px">
+          <div class="scroll-x" id="wall"></div>
+          <div class="row" style="margin-top:12px">
+            <button
+              type="button"
+              class="btn b-blue small"
+              data-act="play"
+              id="playbtn"
+              style="min-width:104px">Play</button
+            >
+            <label for="scrub" class="lbl">Time</label>
+            <input
+              id="scrub"
+              type="range"
+              min="0"
+              max="100"
+              step="0.25"
+              value="100"
+              style="flex:1 1 280px;width:auto;min-height:40px"
+            />
+            <span
+              class="ins"
+              id="latest"
+              style="font-size:13.5px;color:var(--ink2);min-width:260px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ledgerrow" style="margin-top:140px" data-sec="3">
+      <div class="stamp" data-stamp="3">
+        <div class="n">3</div>
+        <div class="h" data-prev></div>
+        <div class="h me" data-hash></div>
+      </div>
+      <div>
+        <h2 class="h2" data-text>Every move is signed and chained.</h2>
+        <p class="lede" style="margin-top:18px;max-width:620px" data-text>
+          Each entry includes the hash of the one before it. Change one byte anywhere,
+          and every entry after it stops matching. That is why nobody, including us,
+          can quietly rewrite the record.
+        </p>
+      </div>
+    </div>
+
+    <div class="ledgerrow" style="margin-top:140px" data-sec="4">
+      <div class="stamp" data-stamp="4">
+        <div class="n">4</div>
+        <div class="h" data-prev></div>
+        <div class="h me" data-hash></div>
+      </div>
+      <div>
+        <h2 class="h2" data-text>This page works the same way.</h2>
+        <p class="lede" style="margin-top:18px;max-width:620px" data-text>
+          Look at the margin. Each section above is hashed with SHA-256 in your browser
+          and chained to the one before. Edit any word and see where the chain breaks.
+        </p>
+        <div class="row" style="margin-top:26px">
+          <button type="button" class="btn b-ink" data-act="tamper" id="tamperbtn"
+            >Change one word</button
+          >
+          <button
+            type="button"
+            class="btn b-line"
+            data-act="editpage"
+            id="editbtn"
+            aria-pressed="false">Edit the page yourself</button
+          >
+        </div>
+        <p
+          class="ins"
+          id="verdict"
+          aria-live="polite"
+          style="margin-top:16px;font-size:15px;font-weight:700"></p>
+      </div>
+    </div>
+
+    <section style="margin-top:140px" class="grid12">
+      <div class="span7 card" style="padding:28px 30px">
+        <h2 class="h3">What we watch, and why</h2>
+        <p style="margin:10px 0 0;color:var(--ink2)" id="how-population"></p>
+        <ul style="margin:14px 0 0;padding-left:20px;color:var(--ink2);line-height:1.8">
+          <li>Heavily used official actions from GitHub, AWS, Azure and others.</li>
+          <li>Actions involved in real incidents.</li>
+          <li>Everything those actions pull in themselves, at every tag.</li>
+          <li>One canary of our own, moved on purpose to test the instrument.</li>
+        </ul>
+      </div>
+      <div class="span5 night" style="padding:28px 30px">
+        <h2 class="h3" style="color:var(--ntext)">Don't trust us. Check us.</h2>
+        <p style="margin:10px 0 0;color:var(--nmuted)">
+          Replay the whole ledger in your browser, recompute every hash, and check every
+          signature.
+        </p>
+        <a href="/verify" class="btn b-light" style="margin-top:20px">Verify the ledger</a>
+      </div>
+    </section>
+  </div>
+
+  <script define:vars={{ payload }} is:inline>
+    window.__REFLEDGER_HOW__ = payload;
+  </script>
+  <script>
+    import { bootHowPage } from '../scripts/how-app';
+    bootHowPage((window as any).__REFLEDGER_HOW__);
+  </script>
+</BaseLayout>

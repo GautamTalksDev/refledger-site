@@ -1,94 +1,75 @@
 :root {
-  /* Color */
   --paper: #edf0ee;
+  --grid: #dde3e0;
   --surface: #f7f9f8;
-  --ink: #262b30;
-  --grid: #d3dad6;
-  --rule: color-mix(in srgb, var(--ink) 12%, transparent);
-  --trace: #97a2a0;
-  --text-secondary: #5e6a69;
-  --text-body: #4a5553;
-  --accent: #2347c8;
-  --graphite: #1c2024;
-  --luminous: #c9d1cd;
-
-  /* Spacing scale (only these) */
-  --s-1: 4px;
-  --s-2: 8px;
-  --s-3: 12px;
-  --s-4: 16px;
-  --s-5: 24px;
-  --s-6: 32px;
-  --s-7: 48px;
-  --s-8: 64px;
-  --s-9: 96px;
-  --s-10: 128px;
-
-  /* Layout */
-  --content-max: 1200px;
-  --gutter: var(--s-5);
-  --section-gap: var(--s-10);
-  --cols: 12;
-
-  /* Type */
-  --font-display: 'Schibsted Grotesk', 'B612', ui-sans-serif, sans-serif;
-  --font-body: 'Schibsted Grotesk', 'B612', ui-sans-serif, sans-serif;
-  --font-instrument: 'B612', ui-sans-serif, sans-serif;
+  --card: #ffffff;
+  --ink: #121518;
+  --ink2: #3b4447;
+  --ink3: #5f6a67;
+  --rule: #c5cdc9;
+  --rule2: #dce2df;
+  --blue: #2347c8;
+  --blue-soft: #eef2fc;
+  --blue-line: #c9d3e8;
+  --rust: #a83e1b;
+  --night: #121518;
+  --night2: #1c2226;
+  --night3: #2a3237;
+  --ntext: #e9edeb;
+  --nmuted: #a3aeab;
+  --shadow: rgba(18, 21, 24, 0.45);
+  --font-display: 'Schibsted Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --font-ins: 'B612', sans-serif;
   --font-mono: 'B612 Mono', ui-monospace, monospace;
-
-  --fs-display-1: 72px;
-  --fs-display-2: 56px;
-  --fs-display-3: 40px;
-  --fs-h2: 32px;
-  --fs-h3: 22px;
-  --fs-body: 17px;
-  --fs-small: 14px;
-  --fs-micro: 12px;
-
-  --lh-display: 1.05;
-  --lh-body: 1.55;
-  --track-display: -0.02em;
-
-  /* Radii */
-  --radius-wall: 22px;
-  --radius-table: 16px;
-  --radius-control: 12px;
-  --radius-pill: 999px;
-
-  --focus-ring: 2px solid var(--ink);
-  --focus-offset: 2px;
-  --shadow-wall: 0 8px 28px color-mix(in srgb, var(--ink) 8%, transparent);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur: 180ms;
-
   color-scheme: light;
 }
 
-@media (max-width: 767px) {
-  :root {
-    --fs-display-1: 40px;
-    --fs-display-2: 32px;
-    --fs-display-3: 28px;
-    --section-gap: 80px;
-    --gutter: var(--s-4);
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #121619;
+    --grid: #1a1f23;
+    --surface: #181d21;
+    --card: #1e2428;
+    --ink: #e9edeb;
+    --ink2: #c3ccc9;
+    --ink3: #9aa6a3;
+    --rule: #2e363c;
+    --rule2: #262d33;
+    --blue: #8ba0ff;
+    --blue-soft: #1b2140;
+    --blue-line: #33407a;
+    --rust: #e8845f;
+    --night: #0b0e10;
+    --night2: #151a1d;
+    --night3: #232a2f;
+    --ntext: #e9edeb;
+    --nmuted: #9aa6a3;
+    --shadow: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #161a1e;
-    --surface: #1c2024;
-    --ink: #e6ebe8;
-    --grid: #3a4248;
-    --rule: color-mix(in srgb, var(--ink) 14%, transparent);
-    --trace: #c9d1cd;
-    --text-secondary: #a8b3b0;
-    --text-body: #c5cecb;
-    --accent: #6e8bff;
-    --graphite: #121518;
-    --shadow-wall: 0 8px 28px rgba(0, 0, 0, 0.35);
-    color-scheme: dark;
-  }
+:root[data-theme='dark'] {
+  --paper: #121619;
+  --grid: #1a1f23;
+  --surface: #181d21;
+  --card: #1e2428;
+  --ink: #e9edeb;
+  --ink2: #c3ccc9;
+  --ink3: #9aa6a3;
+  --rule: #2e363c;
+  --rule2: #262d33;
+  --blue: #8ba0ff;
+  --blue-soft: #1b2140;
+  --blue-line: #33407a;
+  --rust: #e8845f;
+  --night: #0b0e10;
+  --night2: #151a1d;
+  --night3: #232a2f;
+  --ntext: #e9edeb;
+  --nmuted: #9aa6a3;
+  --shadow: rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
 }
 
 @font-face {
@@ -98,7 +79,6 @@
   font-style: normal;
   font-display: swap;
 }
-
 @font-face {
   font-family: 'B612';
   src: url('/fonts/b612-latin-400-normal.woff2') format('woff2');
@@ -106,15 +86,6 @@
   font-style: normal;
   font-display: swap;
 }
-
-@font-face {
-  font-family: 'B612';
-  src: url('/fonts/b612-latin-400-italic.woff2') format('woff2');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
 @font-face {
   font-family: 'B612';
   src: url('/fonts/b612-latin-700-normal.woff2') format('woff2');
@@ -122,15 +93,6 @@
   font-style: normal;
   font-display: swap;
 }
-
-@font-face {
-  font-family: 'B612';
-  src: url('/fonts/b612-latin-700-italic.woff2') format('woff2');
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
 @font-face {
   font-family: 'B612 Mono';
   src: url('/fonts/b612-mono-latin-400-normal.woff2') format('woff2');
@@ -138,7 +100,6 @@
   font-style: normal;
   font-display: swap;
 }
-
 @font-face {
   font-family: 'B612 Mono';
   src: url('/fonts/b612-mono-latin-700-normal.woff2') format('woff2');

@@ -1,105 +1,135 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getSiteData } from '../data';
+import { fmtLedgerAsOf, fmtUtc } from '../lib/format';
 
 const data = getSiteData();
+const tipSeq = Math.max(0, data.chainLength - 1);
 
-// Minimal markdown: headings, paragraphs, tables, links, code. No HTML injection from MD.
-function renderMd(md: string): string {
+type IncidentRow = {
+  when: string;
+  title: string;
+  what: string;
+  response: string;
+};
+
+function parseIncidents(md: string): IncidentRow[] {
+  const rows: IncidentRow[] = [];
   const lines = md.replace(/\r\n/g, '\n').split('\n');
-  const out: string[] = [];
-  let i = 0;
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const inline = (s: string) =>
-    esc(s)
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(
-        /\[([^\]]+)\]\((https?:[^)]+|\/[^)]+)\)/g,
-        '<a href="$2">$1</a>',
-      );
-
-  while (i < lines.length) {
-    const line = lines[i];
-    if (line.startsWith('# ')) {
-      out.push(`<h1>${inline(line.slice(2))}</h1>`);
-      i++;
-      continue;
-    }
-    if (line.startsWith('## ')) {
-      out.push(`<h2>${inline(line.slice(3))}</h2>`);
-      i++;
-      continue;
-    }
-    if (line.startsWith('|') && lines[i + 1]?.match(/^\|[\s-:|]+$/)) {
-      const header = line
+  // Prefer markdown table rows if present
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].startsWith('|')) continue;
+    if (!lines[i + 1]?.match(/^\|[\s-:|]+$/)) continue;
+    i += 2;
+    while (i < lines.length && lines[i].startsWith('|')) {
+      const cells = lines[i]
         .split('|')
         .slice(1, -1)
-        .map((c) => `<th>${inline(c.trim())}</th>`)
-        .join('');
-      i += 2;
-      const rows: string[] = [];
-      while (i < lines.length && lines[i].startsWith('|')) {
-        const cells = lines[i]
-          .split('|')
-          .slice(1, -1)
-          .map((c) => `<td>${inline(c.trim())}</td>`)
-          .join('');
-        rows.push(`<tr>${cells}</tr>`);
-        i++;
+        .map((c) =>
+          c
+            .trim()
+            .replace(/\u2014/g, ',')
+            .replace(/\u2013/g, '-')
+            .replace(/--/g, ', '),
+        );
+      if (cells.length >= 4) {
+        rows.push({
+          when: cells[0],
+          title: cells[1],
+          what: cells[2],
+          response: cells[3],
+        });
       }
-      out.push(
-        `<div class="table-wrap"><table class="data"><thead><tr>${header}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`,
-      );
-      continue;
-    }
-    if (line.trim() === '') {
-      i++;
-      continue;
-    }
-    const para = [line];
-    i++;
-    while (i < lines.length && lines[i].trim() !== '' && !lines[i].startsWith('#') && !lines[i].startsWith('|')) {
-      para.push(lines[i]);
       i++;
     }
-    out.push(`<p>${inline(para.join(' '))}</p>`);
   }
-  return out.join('\n');
+  if (rows.length) return rows;
+
+  // Fall back: ## headings as titles, following paragraphs as body
+  let current: IncidentRow | null = null;
+  for (const line of lines) {
+    if (line.startsWith('## ')) {
+      if (current) rows.push(current);
+      current = {
+        when: '',
+        title: line
+          .slice(3)
+          .replace(/\u2014/g, ',')
+          .replace(/\u2013/g, '-')
+          .replace(/--/g, ', '),
+        what: '',
+        response: '',
+      };
+      continue;
+    }
+    if (!current || !line.trim()) continue;
+    if (!current.what) current.what = line.trim();
+    else if (!current.response) current.response = line.trim();
+  }
+  if (current) rows.push(current);
+  return rows;
 }
 
-const body = renderMd(data.incidentsMd.replace(/^# Incidents\s*/, '# What went wrong, on the record\n\n'));
+const fromMd = parseIncidents(data.incidentsMd);
 const digestNotes = data.digests
   .filter((d) => d.observation_digest.note)
   .map((d) => ({
-    seq: d.seq,
-    date: d.observation_digest.date,
-    note: d.observation_digest.note!,
+    when: fmtUtc(d.recorded_at).split(',')[0],
+    title: `Digest note, entry ${d.seq}`,
+    what: d.observation_digest.note!,
+    response: 'Disclosed in the signed observation digest.',
   }));
+
+const incidents: IncidentRow[] = [...fromMd];
+for (const n of digestNotes) {
+  if (!incidents.some((r) => r.what === n.what)) incidents.push(n);
+}
 ---
 
 <BaseLayout
-  title="What went wrong, on the record · Refledger"
-  description="Disclosures of poller or publish defects that touched the public record."
+  title="Incidents · Refledger"
+  description="Every mistake we have made, how we found it, and where we disclosed it."
   canonicalPath="/incidents"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
 >
-  <div class="prose" set:html={body} />
-
-  <section class="section">
-    <h2>Notes on signed digests</h2>
-    <p class="muted">Each note is part of a signed observation_digest entry.</p>
-    <ul>
+  <div class="wrap" style="padding-top:72px">
+    <h1 class="h1" tabindex="-1">
+      What went wrong,<br />on the record.
+    </h1>
+    <p class="lede" style="margin-top:22px;max-width:660px">
+      Every mistake we have made, how we found it, and where we disclosed it. We
+      add to this list. We never remove from it. Most were caught by our own
+      canary.
+    </p>
+    <ol
+      style="margin:52px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px"
+    >
       {
-        digestNotes.length === 0 ? (
-          <li>No digest notes yet.</li>
-        ) : (
-          digestNotes.map((n) => (
-            <li>
-              <a href={`/e/${n.seq}`}>seq {n.seq}</a> ({n.date}): {n.note}
-            </li>
-          ))
-        )
+        incidents.map((x) => (
+          <li
+            class="paper grid12"
+            style="gap:18px;padding:22px 24px;align-items:start"
+          >
+            <span
+              class="ins"
+              style="grid-column:span 2;font-size:14px;color:var(--ink2)"
+            >
+              {x.when || 'Noted'}
+            </span>
+            <span style="grid-column:span 3;font-weight:800;line-height:1.35">
+              {x.title}
+            </span>
+            <span style="grid-column:span 4;color:var(--ink2)">{x.what}</span>
+            <span
+              class="ins"
+              style="grid-column:span 3;font-size:13.5px;color:var(--ink3)"
+            >
+              {x.response}
+            </span>
+          </li>
+        ))
       }
-    </ul>
-  </section>
+    </ol>
+  </div>
 </BaseLayout>

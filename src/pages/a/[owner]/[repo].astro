@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import TraceWall from '../../../components/TraceWall.astro';
 import { getSiteData, shortSha, tagFromRef } from '../../../data';
+import { buildAt } from '../../../lib/api-v1';
+import { fmtLedgerAsOf, fmtUtc, agoFrom } from '../../../lib/format';
 
 export function getStaticPaths() {
   const data = getSiteData();
@@ -18,153 +19,320 @@ const { repoKey } = Astro.props;
 const data = getSiteData();
 const repo = data.reposByName.get(repoKey)!;
 const events = data.traceEvents.filter((e) => e.repo === repoKey);
-const [owner, name] = repoKey.split('/');
-const pinned = repo.tags.filter((t) => t.tip?.pin_commit).length;
-const tipCount = repo.tags.filter((t) => t.tip).length;
+const [owner] = repoKey.split('/');
+const tipSeq = Math.max(0, data.chainLength - 1);
+const nowMs = new Date(data.buildTime).getTime();
+const movedTags = [
+  ...new Set(
+    events
+      .filter((e) => e.event === 'move' || e.event === 'recreation')
+      .map((e) => e.tag),
+  ),
+];
+const latestMove = events.find(
+  (e) => e.event === 'move' || e.event === 'recreation',
+);
+const watchedLabel = repo.watched_since
+  ? fmtUtc(repo.watched_since).split(',')[0]
+  : 'unknown';
+
+const archiveTag = latestMove?.tag ?? movedTags[0];
+const archiveMove = latestMove;
+const moments: { label: string; sha: string; note: string; pressed?: boolean }[] =
+  [];
+if (archiveTag && archiveMove && repo.watched_since) {
+  const moveDate = archiveMove.recorded_at.slice(0, 10);
+  const atWatch = buildAt(repo.watched_since.slice(0, 10), data);
+  const atMove = buildAt(moveDate, data);
+  const atNow = buildAt(data.buildTime.slice(0, 10), data);
+
+  function shaAt(snap: ReturnType<typeof buildAt>): string {
+    const b = snap.bindings.find(
+      (x) => x.repo === repoKey && x.tag === archiveTag,
+    );
+    if (!b || b.source === 'absent') {
+      return shortSha(archiveMove.fromCommit ?? archiveMove.fromTarget ?? '');
+    }
+    return shortSha(b.commit_sha ?? b.target_sha ?? '');
+  }
+
+  moments.push({
+    label: `${watchedLabel}, ${repo.watched_since.slice(11, 16)}`,
+    sha: shaAt(atWatch),
+    note: 'The first time we looked.',
+  });
+  moments.push({
+    label: 'Before the move',
+    sha: shortSha(archiveMove.fromCommit ?? archiveMove.fromTarget ?? ''),
+    note: 'Unchanged.',
+  });
+  moments.push({
+    label: fmtUtc(archiveMove.recorded_at),
+    sha: shaAt(atMove),
+    note: 'After the move was recorded.',
+  });
+  moments.push({
+    label: 'Now',
+    sha: shaAt(atNow),
+    note: 'Current binding.',
+    pressed: true,
+  });
+}
 ---
 
 <BaseLayout
   title={`${repoKey} · Refledger`}
   description={`Tag binding history for ${repoKey}.`}
   canonicalPath={`/a/${repoKey}`}
-  ogImage={`/og/a/${owner}/${name}.png`}
+  ogImage={`/og/a/${owner}/${repoKey.split('/')[1]}.png`}
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
 >
-  <p class="muted">
-    <a href="/actions">Actions</a> / <span class="mono">{repoKey}</span>
-    {repo.canary && <span class="pill canary">Canary</span>}
-  </p>
-  <h1 style="font-size: clamp(1.6rem, 3vw, 34px); letter-spacing: -0.02em;">{repoKey}</h1>
-  <p class="lede">
-    Watched since {repo.watched_since ?? 'unknown'}. {repo.checks_so_far} checks so far.
-    Last change {repo.last_change_at ?? 'none yet'}.
-    {pinned} of {tipCount} current tips have a pin line.
-  </p>
-
-  <section class="section">
-    <h2>Pin these commits</h2>
-    <div class="stack">
+  <div class="wrap" style="padding-top:56px">
+    <nav aria-label="Breadcrumb" class="lbl">
+      <a href="/moved" style="color:inherit">Watched actions</a> / {owner}
+      {repo.canary && (
+        <span class="pill" style="margin-left:8px">Canary</span>
+      )}
+    </nav>
+    <h1
+      class="h1"
+      tabindex="-1"
+      style="margin-top:14px;font-size:clamp(40px,5.6vw,80px);word-break:break-word"
+    >
+      {repoKey}
+    </h1>
+    <p class="lede" style="margin-top:20px;max-width:720px">
       {
-        tipCount === 0 ? (
-          <p class="muted">No tags observed yet for this repository.</p>
+        movedTags.length && latestMove ? (
+          <>
+            Watched since {watchedLabel}. One or more tags have moved since
+            then, including <b>{latestMove.tag}</b>,{' '}
+            {(latestMove.whatChanged ?? latestMove.event).toLowerCase()} on{' '}
+            {fmtUtc(latestMove.recorded_at).split(',')[0]}.
+          </>
         ) : (
-          repo.tags.map((t) => {
-            const tag = tagFromRef(t.ref);
-            const tip = t.tip;
-            if (!tip) {
-              return (
-                <div>
-                  <p class="mono">{tag}</p>
-                  <p class="muted">No current tip in the newest Ok observation.</p>
-                </div>
-              );
-            }
-            if (!tip.pin_commit) {
-              return (
-                <div>
-                  <p class="mono">{tag}</p>
-                  <p>
-                    The commit has not been resolved yet (tip{' '}
-                    <span class="mono" title={tip.target_sha}>
-                      {shortSha(tip.target_sha)}
-                    </span>
-                    , {tip.ref_type}).
-                  </p>
-                </div>
-              );
-            }
-            const line = `uses: ${repoKey}@${tip.pin_commit} # ${tag}`;
-            return (
-              <div class="pre-block">
-                <button class="copy-btn" type="button" data-copy={line}>
-                  Copy
-                </button>
-                <pre><code>{line}</code></pre>
-              </div>
-            );
-          })
+          <>
+            Watched since {watchedLabel}. None of its tags have moved since
+            then.
+          </>
         )
       }
-    </div>
-  </section>
+    </p>
 
-  <section class="section">
-    <TraceWall
-      idPrefix="repo-wall"
-      showToolbar={false}
-      buildTime={data.buildTime}
-      genesisAt={data.genesisAt}
-      wallRepos={repo.canary ? [] : [repoKey]}
-      allRepos={[repo]}
-      canary={repo.canary ? repo : null}
-      events={events}
-      seals={data.seals}
-      gaps={data.gapBands.filter((g) => g.repos.includes(repoKey) || g.repos.length === 0)}
-      correlations={data.correlationCaptions.filter((c) => c.repo === repoKey)}
-    />
-  </section>
+    <dl
+      class="ins"
+      style="margin:32px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)"
+    >
+      <div style="padding:16px 0">
+        <dt class="lbl">Watching since</dt>
+        <dd style="margin:6px 0 0">
+          {repo.watched_since ? `${fmtUtc(repo.watched_since)} UTC` : 'unknown'}
+        </dd>
+      </div>
+      <div style="padding:16px 0">
+        <dt class="lbl">Checked</dt>
+        <dd style="margin:6px 0 0">
+          Every 5 minutes ({repo.checks_so_far} so far)
+        </dd>
+      </div>
+      <div style="padding:16px 0">
+        <dt class="lbl">Last change</dt>
+        <dd style="margin:6px 0 0">
+          {repo.last_change_at
+            ? `${fmtUtc(repo.last_change_at)} UTC`
+            : 'None seen'}
+        </dd>
+      </div>
+      <div style="padding:16px 0">
+        <dt class="lbl">Upstream</dt>
+        <dd style="margin:6px 0 0">
+          <a href={`https://github.com/${repoKey}`}
+            >github.com/{repoKey}</a
+          >
+        </dd>
+      </div>
+    </dl>
 
-  <section class="section">
-    <h2>Event history</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <thead>
-          <tr>
-            <th scope="col">Seq</th>
-            <th scope="col">When</th>
-            <th scope="col">Event</th>
-            <th scope="col">Tag</th>
-            <th scope="col">Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            repo.entries.length === 0 ? (
-              <tr>
-                <td colspan="5">
-                  No ledger events yet. {repo.checks_so_far} observations are on record since{' '}
-                  {repo.watched_since ?? 'watch start'}.
-                </td>
-              </tr>
-            ) : (
-              repo.entries
-                .slice()
-                .reverse()
-                .map((e) => (
-                  <tr>
-                    <td>
-                      <a class="mono" href={`/e/${e.seq}`}>
-                        {e.seq}
-                      </a>
-                    </td>
-                    <td>{e.recorded_at}</td>
-                    <td>{e.event}</td>
-                    <td class="mono">
-                      {'ref' in e && typeof e.ref === 'string' ? tagFromRef(e.ref) : ''}
-                    </td>
-                    <td>
-                      <a href={`/e/${e.seq}`}>Open entry</a>
-                    </td>
-                  </tr>
+    {
+      movedTags.length > 0 ? (
+        <section style="margin-top:72px">
+          <h2 class="h3">Pin it</h2>
+          {repo.tags
+            .filter((t) => movedTags.includes(tagFromRef(t.ref)) && t.tip?.pin_commit)
+            .map((t) => {
+              const tag = tagFromRef(t.ref);
+              const pin = t.tip!.pin_commit!;
+              const line = `uses: ${repoKey}@${pin} # ${tag}`;
+              const move = events.find((e) => e.tag === tag);
+              const age = move
+                ? agoFrom(new Date(move.recorded_at).getTime(), nowMs)
+                : null;
+              return (
+                <div style="margin-top:16px">
+                  <div
+                    class="night row"
+                    style="padding:10px 10px 10px 22px;justify-content:space-between"
+                  >
+                    <span
+                      class="mono"
+                      style="font-size:14.5px;word-break:break-all"
+                    >
+                      {line}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn small"
+                      style="background:var(--night3);color:var(--ntext)"
+                      data-copy={line}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  {age && (
+                    <p class="lbl" style="margin-top:10px">
+                      This binding is {age} old. {tag} is recorded in the
+                      ledger and may move again.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+        </section>
+      ) : (
+        <section style="margin-top:72px" class="card">
+          <div style="padding:28px 30px">
+            <h2 class="h3">Nothing has moved</h2>
+            <p style="margin:8px 0 0;color:var(--ink2)">
+              Every tag of this action has pointed at the same commit at every
+              check since we started watching. To lock that in for your
+              workflow, <a href="/">check your repository</a> and copy the
+              pinned lines.
+            </p>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      moments.length > 0 && archiveTag && (
+        <section style="margin-top:72px" class="card">
+          <div style="padding:28px 30px">
+            <h2 class="h3">Ask the archive</h2>
+            <p style="margin:8px 0 0;color:var(--ink2)">
+              What did {archiveTag} point at, at a moment in the past? Only a record
+              kept at the time can answer.
+            </p>
+            <div
+              class="row"
+              style="margin-top:20px"
+              role="group"
+              aria-label="Pick a moment"
+            >
+              {
+                moments.map((m) => (
+                  <button
+                    type="button"
+                    class={`btn small ${m.pressed ? 'b-ink' : 'b-line'}`}
+                    data-act="moment"
+                    data-sha={m.sha}
+                    data-note={m.note}
+                    aria-pressed={m.pressed ? 'true' : 'false'}>{m.label}</button
+                  >
                 ))
-            )
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
+              }
+            </div>
+            <div
+              aria-live="polite"
+              class="row"
+              style="margin-top:22px;align-items:baseline"
+            >
+              <span class="ins" style="color:var(--ink2)">{archiveTag} pointed at</span>
+              <span
+                class="mono"
+                id="mo-sha"
+                style="font-size:30px;font-weight:700;color:var(--blue)"
+                >{moments[moments.length - 1]?.sha}</span
+              >
+              <span class="ins muted" id="mo-note" style="font-size:14px"
+                >{moments[moments.length - 1]?.note}</span
+              >
+            </div>
+          </div>
+        </section>
+      )
+    }
+
+    {
+      events.length > 0 && (
+        <section style="margin-top:72px">
+          <h2 class="h3">History</h2>
+          {events.map((m) => (
+            <a
+              href={`/a/${repoKey}/${m.tag}`}
+              class="paper feedrow"
+              style="margin-top:14px"
+            >
+              <span class="ins" style="font-size:14px">
+                {fmtUtc(m.recorded_at)}
+              </span>
+              <span class="mono" style="font-weight:700">
+                {m.tag}
+              </span>
+              <span style="color:var(--ink2)">
+                {m.whatChanged ?? m.event}
+              </span>
+              <span class="mono" style="font-size:13px">
+                {m.fromToText ?? ''}
+              </span>
+              <span class="ins muted" style="font-size:13px">
+                Entry {m.seq}
+              </span>
+            </a>
+          ))}
+        </section>
+      )
+    }
+
+    <p class="lbl" style="margin-top:24px">
+      This page says what moved and when. It never says whether an action is
+      safe. That call is yours.
+    </p>
+  </div>
 
   <script is:inline>
-    document.querySelectorAll('[data-copy]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const text = btn.getAttribute('data-copy') || '';
+    document.querySelectorAll('[data-act="moment"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-act="moment"]').forEach((x) => {
+          x.classList.remove('b-ink');
+          x.classList.add('b-line');
+          x.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add('b-ink');
+        btn.classList.remove('b-line');
+        btn.setAttribute('aria-pressed', 'true');
+        const sha = btn.getAttribute('data-sha') || '';
+        const el = document.getElementById('mo-sha');
+        if (el) el.textContent = sha;
+        const note = document.getElementById('mo-note');
+        if (note) note.textContent = btn.getAttribute('data-note') || '';
+      });
+    });
+  </script>
+  <script>
+    document.querySelectorAll('[data-copy]').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const text = el.getAttribute('data-copy') || '';
         try {
           await navigator.clipboard.writeText(text);
-          btn.textContent = 'Copied';
-          setTimeout(() => {
-            btn.textContent = 'Copy';
-          }, 1500);
+          const t = document.createElement('div');
+          t.className = 'toast';
+          t.setAttribute('role', 'status');
+          t.textContent = 'Pinned line copied';
+          document.body.appendChild(t);
+          setTimeout(() => t.remove(), 2200);
         } catch {
-          btn.textContent = 'Copy failed';
+          /* ignore */
         }
       });
     });

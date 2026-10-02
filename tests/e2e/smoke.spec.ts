@@ -11,13 +11,17 @@ async function expectNoSeriousAxe(page: import('@playwright/test').Page) {
 
 test('home', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('pointer');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'workflow running the code you think',
+  );
   await expectNoSeriousAxe(page);
 });
 
 test('action page', async ({ page }) => {
   await page.goto('/a/actions/checkout');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('actions/checkout');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'actions/checkout',
+  );
   await expectNoSeriousAxe(page);
 });
 
@@ -29,18 +33,24 @@ test('tag page', async ({ page }) => {
 
 test('moved', async ({ page }) => {
   await page.goto('/moved');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Moved');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    'What moved',
+  );
   await expectNoSeriousAxe(page);
 });
 
 test('verify page and in-browser verifier', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.goto('/verify');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Verify');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(
+    "Don't trust us",
+  );
   await expectNoSeriousAxe(page);
 
   await page.getByRole('button', { name: 'Verify the whole ledger' }).click();
-  await expect(page.locator('#verify-out')).toBeVisible({ timeout: 120_000 });
-  const text = await page.locator('#verify-out').innerText();
-  expect(text).toContain('chain: OK');
+  await expect(page.locator('#vresult')).toContainText('chain: OK', {
+    timeout: 120_000,
+  });
+  const text = await page.locator('#vresult').innerText();
   expect(text).toMatch(/head: signed, valid/);
 });

@@ -335,7 +335,7 @@ export function renderWallSvg(model: WallModel): string {
 
   if (model.hiddenUnchanged > 0) {
     parts.push(
-      `<a href="/actions" class="wlab wlab-muted" style="font-style:italic">
+      `<a href="/moved" class="wlab wlab-muted" style="font-style:italic">
         <text x="${padL}" y="${(ecoBottom + 18).toFixed(1)}">${model.hiddenUnchanged} more repositories, every one unchanged since genesis</text>
       </a>`,
     );

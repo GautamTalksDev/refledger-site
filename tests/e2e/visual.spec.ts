@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const widths = [390, 768, 1440] as const;
-const routes = ['/', '/actions', '/moved', '/verify', '/pin', '/docs/api'];
+const routes = ['/', '/moved', '/how', '/verify', '/paste', '/incidents'];
 
 const outDir = process.env.SCREEN_DIR || 'design/screens/after';
 

@@ -8,12 +8,12 @@ export async function GET() {
 
   const urls = new Set([
     '/',
-    '/actions',
+    '/check',
+    '/paste',
     '/moved',
+    '/how',
     '/verify',
     '/incidents',
-    '/why-pinning-tags-does-not-work',
-    '/search',
   ]);
 
   for (const r of data.repos) {

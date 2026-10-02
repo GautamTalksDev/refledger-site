@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { getSiteData, shortSha, tagFromRef } from '../../../../data';
+import { fmtUtc } from '../../../../lib/format';
+import { whatChangedFromEntry } from '../../../../lib/what-changed';
 
 export function getStaticPaths() {
   const data = getSiteData();
@@ -9,6 +11,7 @@ export function getStaticPaths() {
     const [owner, ...rest] = r.repo.split('/');
     const repo = rest.join('/');
     for (const t of r.tags) {
+      if (t.events.length === 0) continue;
       const tag = tagFromRef(t.ref);
       paths.push({
         params: { owner, repo, tag },
@@ -24,91 +27,184 @@ const data = getSiteData();
 const repo = data.reposByName.get(repoKey)!;
 const timeline = repo.tags.find((t) => t.ref === refName)!;
 const tag = tagFromRef(refName);
-
-function heldMs(first: string, last?: string): string {
-  const end = last ? new Date(last).getTime() : Date.now();
-  const start = new Date(first).getTime();
-  const days = Math.max(0, (end - start) / 86400000);
-  if (days < 1) return `${Math.round(days * 24)} hours`;
-  return `${days.toFixed(1)} days`;
+const nowMs = new Date(data.buildTime).getTime();
+function durHours(ms: number): string {
+  const h = ms / 3_600_000;
+  const d = Math.floor(h / 24);
+  const r = Math.round(h - d * 24);
+  return (d ? d + (d === 1 ? ' day, ' : ' days, ') : '') + r + (r === 1 ? ' hour' : ' hours');
 }
+
+const sorted = [...timeline.events].sort((a, b) =>
+  a.recorded_at < b.recorded_at ? -1 : 1,
+);
+const first = sorted[0];
+const firstSha = shortSha(first.from.commit_sha ?? first.from.target_sha);
+const firstSeen = repo.watched_since ?? first.recorded_at;
+
+const moveEv = sorted.find((e) => e.kind === 'move' || e.kind === 'recreation');
+const tipSha = timeline.tip
+  ? shortSha(timeline.tip.commit_sha ?? timeline.tip.target_sha)
+  : moveEv && moveEv.kind !== 'deletion'
+    ? shortSha(moveEv.to.commit_sha ?? moveEv.to.target_sha)
+    : firstSha;
+
+const heldBefore = moveEv
+  ? durHours(new Date(moveEv.recorded_at).getTime() - new Date(firstSeen).getTime())
+  : durHours(nowMs - new Date(firstSeen).getTime());
+
+const heldAfter = moveEv
+  ? durHours(nowMs - new Date(moveEv.recorded_at).getTime())
+  : null;
+
+let lede = `A tag of ${repoKey}. `;
+if (moveEv && moveEv.kind !== 'deletion') {
+  lede += `Since we started watching, it has moved ${sorted.filter((e) => e.kind === 'move' || e.kind === 'recreation').length} time(s) on the record.`;
+} else {
+  lede += `Recorded binding events appear on the ledger.`;
+}
+
+const tipSeq = Math.max(0, data.chainLength - 1);
 ---
 
 <BaseLayout
-  title={`${repoKey}@${tag} · Refledger`}
+  title={`${repoKey} ${tag} · Refledger`}
   description={`Binding history for ${repoKey} tag ${tag}.`}
   canonicalPath={`/a/${repoKey}/${tag}`}
+  ledgerAsOf={fmtUtc(data.buildTime) + ' UTC'}
+  latestSeq={tipSeq}
 >
-  <p class="muted">
-    <a href="/actions">Actions</a> /
-    <a href={`/a/${repoKey}`}>{repoKey}</a> /
-    <span class="mono">{tag}</span>
-    {repo.canary && <span class="pill canary">Canary</span>}
-  </p>
-  <h1 class="mono">{tag}</h1>
-  <p class="lede">Each binding below is proven by a ledger entry.</p>
+  <div class="wrap" style="padding-top:56px">
+    <nav aria-label="Breadcrumb" class="lbl">
+      <a href="/moved" style="color:inherit">Watched actions</a> /
+      <a href={`/a/${repoKey}`} style="color:inherit">{repoKey}</a> / {tag}
+      {repo.canary && <span class="pill" style="margin-left:8px">Canary</span>}
+    </nav>
+    <div class="grid12" style="margin-top:18px;align-items:end">
+      <h1
+        class="mono span5"
+        tabindex="-1"
+        style="margin:0;font-size:clamp(96px,14vw,190px);line-height:.82;font-weight:700;letter-spacing:-.06em"
+      >
+        {tag}
+      </h1>
+      <p class="lede span7" style="margin-bottom:12px">{lede}</p>
+    </div>
 
-  {
-    timeline.tip && (
-      <p>
-        Current tip:{' '}
-        {timeline.tip.peeled && timeline.tip.commit_sha ? (
-          <a
-            class="mono"
-            href={`https://github.com/${repoKey}/commit/${timeline.tip.commit_sha}`}
-            title={timeline.tip.commit_sha}
-          >
-            {shortSha(timeline.tip.commit_sha)}
-          </a>
-        ) : (
-          <span>
-            commit not resolved yet (
-            <span class="mono" title={timeline.tip.target_sha}>
-              {shortSha(timeline.tip.target_sha)}
-            </span>
-            )
-          </span>
-        )}
-      </p>
-    )
-  }
+    <h2 class="h3" style="margin-top:72px">Its life, as we recorded it</h2>
+    <ol style="margin:28px 0 0;padding:0;list-style:none">
+      <li
+        style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+      >
+        <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+          >{fmtUtc(firstSeen)} UTC</span
+        >
+        <span aria-hidden="true" style="position:relative">
+          <span
+            style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+          ></span>
+          <span
+            style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--ink)"
+          ></span>
+        </span>
+        <div>
+          <div class="h3" style="font-size:21px">
+            First seen, pointing at <span class="mono">{firstSha}</span>
+          </div>
+          <p style="margin:6px 0 0;color:var(--ink2)">
+            Held for {heldBefore}. Unchanged at every check until the next recorded event.
+          </p>
+        </div>
+      </li>
 
-  <ol class="timeline">
-    {
-      timeline.events
-        .slice()
-        .reverse()
-        .map((ev) => {
-          const binding = ev.kind === 'deletion' ? ev.from : ev.to;
-          return (
-            <li class={ev.kind === 'move' ? 'move' : undefined}>
-              <h2>
-                {ev.kind} · <a href={`/e/${ev.seq}`}>seq {ev.seq}</a>
-              </h2>
-              <p class="muted">{ev.recorded_at}</p>
-              <p>
-                Commit:{' '}
-                <a
-                  class="mono"
-                  href={`https://github.com/${repoKey}/commit/${binding.commit_sha}`}
-                  title={binding.commit_sha}
+      {
+        sorted.map((ev) => {
+          if (ev.kind === 'deletion') {
+            const entry = data.entriesBySeq.get(ev.seq);
+            const correction = data.correctionsBySeq.get(ev.seq) ?? null;
+            const what = entry
+              ? whatChangedFromEntry(entry, correction).phrase
+              : 'Tag deleted';
+            return (
+              <li
+                style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+              >
+                <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+                  >{fmtUtc(ev.recorded_at)} UTC</span
                 >
-                  {shortSha(binding.commit_sha)}
-                </a>
-              </p>
-              <p>
-                Tree: <span class="mono" title={binding.tree_sha}>{shortSha(binding.tree_sha)}</span>
-              </p>
-              <p>
-                First observed {binding.first_observed}
-                {binding.last_observed ? `; last observed ${binding.last_observed}` : ''}
-              </p>
-              <p>
-                Held for {heldMs(binding.first_observed, binding.last_observed)}
-              </p>
+                <span aria-hidden="true" style="position:relative">
+                  <span
+                    style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+                  ></span>
+                  <span
+                    style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--rust)"
+                  ></span>
+                </span>
+                <div>
+                  <div class="h3" style="font-size:21px">{what}</div>
+                  <p style="margin:6px 0 0;color:var(--ink2)">
+                    From <span class="mono">{shortSha(ev.from.commit_sha ?? ev.from.target_sha)}</span>.
+                  </p>
+                  <a href={`/e/${ev.seq}`} style="margin-top:8px;display:inline-block;font-weight:600"
+                    >Read entry {ev.seq}</a
+                  >
+                </div>
+              </li>
+            );
+          }
+          const entry = data.entriesBySeq.get(ev.seq);
+          const correction = data.correctionsBySeq.get(ev.seq) ?? null;
+          const what = entry
+            ? whatChangedFromEntry(entry, correction).phrase
+            : ev.kind;
+          const toS = shortSha(ev.to.commit_sha ?? ev.to.target_sha);
+          return (
+            <li
+              style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+            >
+              <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+                >{fmtUtc(ev.recorded_at)} UTC</span
+              >
+              <span aria-hidden="true" style="position:relative">
+                <span
+                  style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+                ></span>
+                <span
+                  style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--blue)"
+                ></span>
+              </span>
+              <div>
+                <div class="h3" style="font-size:21px">
+                  Moved to <span class="mono" style="color:var(--blue)">{toS}</span>
+                </div>
+                <p style="margin:6px 0 0;color:var(--ink2)">{what}.</p>
+                <a href={`/e/${ev.seq}`} style="margin-top:8px;display:inline-block;font-weight:600"
+                  >Read entry {ev.seq}</a
+                >
+              </div>
             </li>
           );
         })
-    }
-  </ol>
+      }
+
+      <li
+        style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+      >
+        <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px">Now</span>
+        <span aria-hidden="true" style="position:relative">
+          <span
+            style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--blue)"
+          ></span>
+        </span>
+        <div>
+          <div class="h3" style="font-size:21px">
+            Still pointing at <span class="mono">{tipSha}</span>
+          </div>
+          <p style="margin:6px 0 0;color:var(--ink2)">
+            {heldAfter ? `Held for ${heldAfter} so far.` : 'Current tip from the newest observation.'}
+          </p>
+        </div>
+      </li>
+    </ol>
+  </div>
 </BaseLayout>

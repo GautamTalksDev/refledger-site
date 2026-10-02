@@ -1,355 +1,95 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import LookupForm from '../components/LookupForm.astro';
-import TraceWall from '../components/TraceWall.astro';
-import ScrollStory from '../components/ScrollStory.astro';
-import WallScrubber from '../components/WallScrubber.astro';
-import {
-  ecosystemSentence,
-  getSiteData,
-  movedInLastDays,
-  shortSha,
-} from '../data';
-import { describeWhatChanged, describeFromTo } from '../lib/what-changed';
-import { listAtDates } from '../lib/api-v1';
+import { getSiteData } from '../data';
+import { agoFrom, fmtLedgerAsOf } from '../lib/format';
 
 const data = getSiteData();
-const atDates = listAtDates(data);
-const recent = movedInLastDays(7, true);
-const canary = data.reposByName.get('GautamTalksDev/canary') ?? null;
-const CANARY = 'GautamTalksDev/canary';
-const watchedKeys = data.watched.filter(
-  (w) => w.active && w.repo !== CANARY,
-);
-const actionCount = new Set(
-  watchedKeys.map((w) => `${w.repo}#${w.path ?? ''}`),
-).size;
-const repoCount = new Set(watchedKeys.map((w) => w.repo)).size;
-const watchedNames = data.repos.filter((r) => !r.canary).map((r) => r.repo);
-const sentence = ecosystemSentence();
-const rekorUrl = data.latestRekor
-  ? `https://search.sigstore.dev/?logIndex=${data.latestRekor.log_index}`
+const nowMs = new Date(data.buildTime).getTime();
+const eco = data.traceEvents.filter((e) => !e.isCanary);
+const latest = eco[0]
+  ? {
+      repo: eco[0].repo,
+      tag: eco[0].tag,
+      what: eco[0].whatChanged ?? eco[0].event,
+      ago: agoFrom(new Date(eco[0].recorded_at).getTime(), nowMs),
+    }
   : null;
-
-function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const day = d.getUTCDate();
-  const mon = months[d.getUTCMonth()];
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mm = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${day} ${mon}, ${hh}:${mm}`;
-}
-
-function severityLabel(s?: string): string {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function formatSealDate(isoDate: string | null): string {
-  if (!isoDate) return 'none yet';
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const months = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-  return `${d} ${months[m - 1]}`;
-}
-
-const corrSeqs = new Set(data.correlationCaptions.flatMap((c) => c.member_seqs));
-const shownCorr = new Set<number>();
-
-type MovedRow = {
-  when: string;
-  tags: string;
-  repo: string;
-  canary: boolean;
-  what: string;
-  fromTo: string;
-  severity: string;
-  high: boolean;
-  href: string;
-  kind: 'event' | 'correlation' | 'canary-summary';
-};
-
-const ecosystemRows: MovedRow[] = [];
-const canaryEvents = recent.filter((e) => e.isCanary);
-
-for (const ev of recent) {
-  if (ev.isCanary) continue;
-  const corr = data.correlationCaptions.find((c) => c.member_seqs.includes(ev.seq));
-  if (corr && !shownCorr.has(corr.seq)) {
-    shownCorr.add(corr.seq);
-    const members = recent.filter((e) => corr.member_seqs.includes(e.seq));
-    const sample = members[0];
-    const fromTo = describeFromTo({
-      event: 'move',
-      fromCommit: sample?.fromCommit,
-      toCommit: sample?.toCommit,
-      fromTarget: sample?.fromTarget,
-      toTarget: sample?.toTarget,
-    });
-    ecosystemRows.push({
-      when: formatWhen(corr.at),
-      tags: corr.tags.join(', '),
-      repo: corr.repo || ev.repo,
-      canary: false,
-      what: describeWhatChanged({
-        event: 'correlation',
-        correlationTagCount: corr.tags.length,
-      }),
-      fromTo: fromTo.text,
-      severity: severityLabel(members[0]?.severity) || 'High',
-      high: members.some((m) => m.severity === 'high'),
-      href: `/e/${corr.seq}`,
-      kind: 'correlation',
-    });
-    continue;
-  }
-  if (corrSeqs.has(ev.seq)) continue;
-
-  ecosystemRows.push({
-    when: formatWhen(ev.recorded_at),
-    tags: ev.tag,
-    repo: ev.repo,
-    canary: false,
-    what: ev.whatChanged ?? 'Tag tip moved',
-    fromTo: ev.fromToText ?? `${shortSha(ev.fromCommit)} → ${shortSha(ev.toCommit)}`,
-    severity: severityLabel(ev.severity),
-    high: ev.severity === 'high',
-    href: `/e/${ev.seq}`,
-    kind: 'event',
-  });
-}
-
-const canaryCount = canaryEvents.length;
-const canarySummary: MovedRow | null =
-  canaryCount > 0
-    ? {
-        when: formatWhen(canaryEvents[0].recorded_at),
-        tags: '',
-        repo: 'GautamTalksDev/canary',
-        canary: true,
-        what: `${canaryCount} canary test move${canaryCount === 1 ? '' : 's'} this week`,
-        fromTo: '',
-        severity: '',
-        high: false,
-        href: '/moved?canary=1',
-        kind: 'canary-summary',
-      }
-    : null;
+const tipSeq = Math.max(0, data.chainLength - 1);
 ---
 
 <BaseLayout
-  title="Refledger"
-  description="A tag is a pointer. We write down where it points. A public, signed record of GitHub Action tag movements."
+  title="Refledger: is your workflow running the code you think it is?"
+  description="Refledger checks every GitHub Action your workflow uses, tells you which ones can change without you knowing, and gives you the fix. Backed by a public, signed record of where every watched tag has pointed."
+  canonicalPath="/"
+  nav="home"
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
 >
-  <Fragment slot="head">
-    <script
-      type="application/ld+json"
-      set:html={JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'Dataset',
-        name: 'Refledger',
-        description:
-          'A public, signed, hash-chained record of what GitHub Action tags pointed at, and when they moved.',
-        url: 'https://refledger.gautamkhosla.com',
-        license: 'https://www.apache.org/licenses/LICENSE-2.0',
-        creator: { '@type': 'Person', name: 'Gautam Khosla' },
-      })}
-    />
-  </Fragment>
-
-  <section class="hero hero-night" aria-labelledby="hero-title">
-    <div class="hero-copy">
-      <h1 id="hero-title">A tag is a pointer. We write down where it points.</h1>
-      <p class="hero-sub">
-        Refledger checks every watched GitHub Action tag every five minutes and keeps a signed,
-        public record of each move. You can verify all of it yourself, without trusting us.
-      </p>
-      <p class="scope-sentence">
-        Watching {actionCount} GitHub Actions from {repoCount} repositories, chosen for heavy use
-        and past incidents, plus everything they depend on.
-        <a href="/population/METHOD">How we chose them</a>
-      </p>
-      <p class="status-chip" role="status">
-        Ledger as of {
-          new Date(data.buildTime).toISOString().slice(11, 16)
-        } UTC
-      </p>
-    </div>
-    <LookupForm />
-    <datalist id="watched-repos">
-      {watchedNames.map((name) => <option value={name} />)}
-    </datalist>
-  </section>
-
-  <div class="night-zone">
-    <div class="site-shell">
-      <TraceWall
-        buildTime={data.buildTime}
-        genesisAt={data.genesisAt}
-        wallRepos={data.wallDefaultRepos}
-        allRepos={data.repos}
-        canary={canary}
-        events={data.traceEvents}
-        seals={data.seals}
-        gaps={data.gapBands}
-        correlations={data.correlationCaptions}
+  <div class="wrap narrow" style="padding-top:88px">
+    <h1 class="h1" tabindex="-1">
+      Is your workflow running the code you think it is?
+    </h1>
+    <p class="lede" style="margin-top:24px;max-width:640px">
+      Enter a public GitHub repository. We check every action it uses, tell you
+      which ones can change without you knowing, and give you the fix.
+    </p>
+    <form class="bigform" style="margin-top:40px" action="/check" method="get">
+      <label for="repo" class="lbl" style="flex-basis:100%">Repository</label>
+      <input
+        id="repo"
+        name="repo"
+        type="text"
+        placeholder="your-org/your-repo"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        required
       />
-      <WallScrubber buildTime={data.buildTime} dates={atDates} />
-    </div>
-  </div>
+      <button type="submit" class="btn b-blue">Check</button>
+    </form>
+    <p class="ins muted" style="margin-top:14px;font-size:13.5px">
+      Runs in your browser. Nothing is stored.
+      <a href="/paste" class="linkbtn" style="text-decoration:underline"
+        >Paste a workflow instead</a
+      >
+      or
+      <a href="/check?example=1" class="linkbtn" style="text-decoration:underline"
+        >try an example</a
+      >.
+    </p>
 
-  <p class="wall-sentence">
-    {sentence}
+    <div class="card" style="margin-top:96px;padding:28px 30px">
+      <div
+        class="row"
+        style="justify-content:space-between;align-items:flex-start;gap:24px"
+      >
+        <div style="max-width:560px">
+          <h2 class="h3">Why this matters</h2>
+          <p style="margin:8px 0 0;color:var(--ink2)">
+            A tag like <span class="mono">@v4</span> is a pointer. Its owner, or
+            anyone who takes over their account, can point it at different code
+            tonight. Your workflow file won't change, and your next run will
+            execute it. In March 2025, 346 tags of tj-actions/changed-files were
+            moved this way.
+          </p>
+        </div>
+        <a href="/how" class="btn b-line">See it happen</a>
+      </div>
+    </div>
+
     {
-      data.ecosystemMovesLast7Days === 0 && (
-        <span class="muted"> Every movement on the wall above is our canary, moved on purpose.</span>
+      latest && (
+        <div style="margin-top:40px" class="row">
+          <span class="lbl">Latest real move:</span>
+          <a
+            href={`/a/${latest.repo}/${latest.tag}`}
+            style="font-size:15px"
+          >
+            {latest.repo} {latest.tag} {latest.what.toLowerCase()}, {latest.ago}{' '}
+            ago
+          </a>
+        </div>
       )
     }
-  </p>
-
-  <ScrollStory />
-
-  <div class="home-split">
-    <section id="moved" class="moved-col" aria-labelledby="moved-title">
-      <div class="moved-head">
-        <h2 id="moved-title">Moved in the last 7 days</h2>
-        <a href="/moved.xml">Subscribe with RSS</a>
-      </div>
-      {
-        ecosystemRows.length === 0 && (
-          <p class="table-note" style="margin-bottom: 12px">
-            No ecosystem tags moved this week.
-          </p>
-        )
-      }
-      <div class="table-wrap">
-        <table class="data">
-          <thead>
-            <tr>
-              <th scope="col">When, UTC</th>
-              <th scope="col">Tag</th>
-              <th scope="col">What changed</th>
-              <th scope="col">From, to</th>
-              <th scope="col">Severity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {
-              ecosystemRows.map((row) => (
-                <tr>
-                  <td style="white-space: nowrap">{row.when}</td>
-                  <td>
-                    <div class="mono">{row.tags}</div>
-                    <div class="tag-cell-meta">
-                      <a href={`/a/${row.repo}`}>{row.repo}</a>
-                    </div>
-                  </td>
-                  <td>
-                    <a href={row.href}>{row.what}</a>
-                  </td>
-                  <td class="mono" style="white-space: nowrap">{row.fromTo}</td>
-                  <td class={row.high ? 'severity-high' : undefined}>{row.severity}</td>
-                </tr>
-              ))
-            }
-            {
-              canarySummary && (
-                <tr>
-                  <td style="white-space: nowrap">{canarySummary.when}</td>
-                  <td>
-                    <div class="tag-cell-meta">
-                      <span class="pill canary">Canary</span>
-                      <a href={`/a/${canarySummary.repo}`}>{canarySummary.repo}</a>
-                    </div>
-                  </td>
-                  <td colspan="3">
-                    <a href={canarySummary.href}>{canarySummary.what}</a>
-                  </td>
-                </tr>
-              )
-            }
-            {
-              ecosystemRows.length === 0 && !canarySummary && (
-                <tr>
-                  <td colspan="5">No tag movements in the last 7 days.</td>
-                </tr>
-              )
-            }
-          </tbody>
-        </table>
-      </div>
-      <p class="table-note">
-        Each row links to the ledger entry that records it. Times are when we first saw the change;
-        the exact moment falls between two checks.
-      </p>
-    </section>
-
-    <aside id="record" class="record-panel" aria-labelledby="record-title">
-      <h2 id="record-title">The record, checked</h2>
-      <p class="record-sub">Last day sealed: {formatSealDate(data.lastSealedDate)}.</p>
-      <dl>
-        <div class="record-block">
-          <dt>Chain</dt>
-          <dd>{data.chainLength} entries, every one hash linked to the last</dd>
-        </div>
-        <div class="record-block">
-          <dt>Signed with</dt>
-          <dd class="mono" style="word-break: break-all">{data.signingKeyShort}</dd>
-        </div>
-        <div class="record-block">
-          <dt>Witnessed by Sigstore Rekor</dt>
-          <dd class="mono">
-            {
-              data.latestRekor && rekorUrl ? (
-                <a href={rekorUrl} style="color: #EDF0EE">
-                  Entry {data.latestRekor.log_index}
-                </a>
-              ) : (
-                'none yet'
-              )
-            }
-          </dd>
-        </div>
-        <div class="record-block">
-          <dt>Gaps on the record</dt>
-          <dd>
-            {data.digestGapTotals.skipped} skipped checks, {data.digestGapTotals.failed} failed, all
-            disclosed
-          </dd>
-        </div>
-      </dl>
-      <a class="record-cta" href="/verify">Verify it yourself in one command</a>
-      <a class="record-link" href="/incidents">Read the incident log</a>
-    </aside>
   </div>
-
-  <section id="why" class="why-section" aria-labelledby="why-title">
-    <h2 id="why-title">Pinning to a tag does not pin the code.</h2>
-    <div class="why-copy">
-      <p>
-        When your workflow says <span class="mono">uses: owner/action@v4</span>, the label stays put
-        while the code behind it can change overnight. GitHub keeps no record of where a tag used to
-        point.
-      </p>
-      <p>
-        In March 2025, 346 tags of tj-actions/changed-files were moved to one malicious commit. In
-        March 2026, 76 of 77 tags of aquasecurity/trivy-action were. Refledger is the record that
-        would have shown both, the moment they happened.
-      </p>
-      <a href="/why-pinning-tags-does-not-work">Read why tags move, and when it matters</a>
-    </div>
-  </section>
 </BaseLayout>

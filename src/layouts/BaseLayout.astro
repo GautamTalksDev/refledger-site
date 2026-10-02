@@ -1,13 +1,18 @@
 ---
 import '../styles/base.css';
 import { ClientRouter } from 'astro:transitions';
-import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
   title: string;
   description: string;
   canonicalPath?: string;
   ogImage?: string;
+  /** Which main nav item is current: home | moved | how | verify */
+  nav?: 'home' | 'moved' | 'how' | 'verify' | null;
+  ledgerAsOf?: string;
+  /** Latest tip seq for footer example link */
+  latestSeq?: number;
+  exampleAction?: string;
 }
 
 const {
@@ -15,18 +20,24 @@ const {
   description,
   canonicalPath = Astro.url.pathname.replace(/\/$/, '') || '/',
   ogImage = '/og/default.png',
+  nav = null,
+  ledgerAsOf,
+  latestSeq,
+  exampleAction = 'reviewdog/action-actionlint',
 } = Astro.props;
 
 const site = 'https://refledger.gautamkhosla.com';
 const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
-const path = Astro.url.pathname;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -40,94 +51,71 @@ const path = Astro.url.pathname;
     <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <ClientRouter />
-    <style is:global>
-      @view-transition {
-        navigation: auto;
-      }
-      [data-vt='repo-line'] {
-        view-transition-name: repo-line;
-      }
-      [data-vt='tag-pill'] {
-        view-transition-name: tag-pill;
-      }
-      [data-vt='jog'] {
-        view-transition-name: jog;
-      }
-    </style>
     <slot name="head" />
   </head>
-  <body class="survey-ground">
-    <header class="site-header">
-      <div class="site-shell header-inner">
-        <a class="wordmark" href="/" aria-label="Refledger home">
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site">
+      <div class="wrap in">
+        <a href="/" class="logo" aria-label="Refledger home">
           <svg
-            width="30"
-            height="22"
-            viewBox="0 0 30 22"
+            width="28"
+            height="20"
+            viewBox="0 0 28 20"
             aria-hidden="true"
             fill="none"
             stroke-width="2.2"
             stroke-linecap="round"
-            shape-rendering="crispEdges"
           >
-            <path d="M2 5 H28" stroke="currentColor"></path>
-            <path d="M2 11 H14 V17 H28" stroke="var(--accent)"></path>
+            <path d="M2 4 H26" stroke="currentColor"></path>
+            <path d="M2 10 H13 V16 H26" stroke="var(--blue)"></path>
           </svg>
-          <span class="wordmark-text">Refledger</span>
+          Refledger
         </a>
-        <nav aria-label="Main">
-          <ul class="site-nav">
-            <li>
-              <a href="/moved" aria-current={path.startsWith('/moved') ? 'page' : undefined}
-                >Moved</a
-              >
-            </li>
-            <li>
-              <a
-                href="/actions"
-                aria-current={path.startsWith('/actions') || path.startsWith('/a/')
-                  ? 'page'
-                  : undefined}>Actions</a
-              >
-            </li>
-            <li>
-              <a href="/pin" aria-current={path.startsWith('/pin') ? 'page' : undefined}>Pin</a>
-            </li>
-            <li>
-              <a href="/verify" aria-current={path.startsWith('/verify') ? 'page' : undefined}
-                >Verify</a
-              >
-            </li>
-            <li>
-              <a href="/docs/api" aria-current={path.startsWith('/docs') ? 'page' : undefined}
-                >API</a
-              >
-            </li>
-            <li>
-              <a
-                href="/why-pinning-tags-does-not-work"
-                aria-current={path.startsWith('/why-pinning') ? 'page' : undefined}
-                >Why tags move</a
-              >
-            </li>
-            <li>
-              <a class="nav-source" href="https://github.com/GautamTalksDev/refledger"
-                >Source on GitHub</a
-              >
-            </li>
-          </ul>
+        <nav class="main" aria-label="Main">
+          <a href="/" aria-current={nav === 'home' ? 'page' : undefined}
+            >Check a repo</a
+          >
+          <a href="/moved" aria-current={nav === 'moved' ? 'page' : undefined}
+            >What moved</a
+          >
+          <a href="/how" aria-current={nav === 'how' ? 'page' : undefined}
+            >How it works</a
+          >
+          <a href="/verify" aria-current={nav === 'verify' ? 'page' : undefined}
+            >Verify</a
+          >
         </nav>
+        {
+          ledgerAsOf && (
+            <span class="status" title="The most recent data in this build">
+              <span class="dot" aria-hidden="true"></span>
+              Ledger as of {ledgerAsOf}
+            </span>
+          )
+        }
       </div>
     </header>
-    <main class="site-main site-shell">
+
+    <main id="main" tabindex="-1">
       <slot />
     </main>
-    <footer class="site-footer">
-      <div class="site-shell footer-inner">
-        <span>Refledger records facts, never verdicts. Code under Apache 2.0.</span>
-        <span>Press Ctrl K or Cmd K to jump. Public key and kill test are on GitHub.</span>
+
+    <footer class="site">
+      <div class="wrap in">
+        <span>Refledger records facts, never verdicts.</span>
+        <nav aria-label="Footer">
+          <a href="/how">How it works</a>
+          <a href="/incidents">Incidents</a>
+          <a href={`/a/${exampleAction}`}>Example action</a>
+          {
+            latestSeq != null && (
+              <a href={`/e/${latestSeq}`}>Latest entry</a>
+            )
+          }
+          <a href="https://github.com/GautamTalksDev/refledger">Source</a>
+        </nav>
       </div>
     </footer>
-    <CommandPalette />
   </body>
 </html>

@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Refledger: is your workflow running the code you think it is?</title>
+<meta name="description" content="Refledger checks every GitHub Action your workflow uses, tells you which ones can change without you knowing, and gives you the fix. Backed by a public, signed record of where every watched tag has pointed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap">
+<style>
+:root{--paper:#EDF0EE;--grid:#DDE3E0;--surface:#F7F9F8;--card:#FFFFFF;--ink:#121518;--ink2:#3B4447;--ink3:#5F6A67;--rule:#C5CDC9;--rule2:#DCE2DF;--blue:#2347C8;--blue-soft:#EEF2FC;--blue-line:#C9D3E8;--rust:#A83E1B;--night:#121518;--night2:#1C2226;--night3:#2A3237;--ntext:#E9EDEB;--nmuted:#A3AEAB;--shadow:rgba(18,21,24,.45)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--paper:#121619;--grid:#1A1F23;--surface:#181D21;--card:#1E2428;--ink:#E9EDEB;--ink2:#C3CCC9;--ink3:#9AA6A3;--rule:#2E363C;--rule2:#262D33;--blue:#8BA0FF;--blue-soft:#1B2140;--blue-line:#33407A;--rust:#E8845F;--night:#0B0E10;--night2:#151A1D;--night3:#232A2F;--ntext:#E9EDEB;--nmuted:#9AA6A3;--shadow:rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--paper:#121619;--grid:#1A1F23;--surface:#181D21;--card:#1E2428;--ink:#E9EDEB;--ink2:#C3CCC9;--ink3:#9AA6A3;--rule:#2E363C;--rule2:#262D33;--blue:#8BA0FF;--blue-soft:#1B2140;--blue-line:#33407A;--rust:#E8845F;--night:#0B0E10;--night2:#151A1D;--night3:#232A2F;--ntext:#E9EDEB;--nmuted:#9AA6A3;--shadow:rgba(0,0,0,.6)}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px;color:var(--ink);font-family:'Schibsted Grotesk','Segoe UI',system-ui,sans-serif;font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--ink);text-underline-offset:3px}a:hover{color:var(--blue)}
+img,svg{max-width:100%}
+.skip{position:absolute;left:-999px;top:8px;background:var(--ink);color:var(--paper);padding:10px 14px;border-radius:10px;z-index:10}.skip:focus{left:12px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 32px}
+.narrow{max-width:900px}
+.ins{font-family:'B612',sans-serif}
+.mono{font-family:'B612 Mono',ui-monospace,monospace}
+.lbl{font-family:'B612',sans-serif;font-size:12.5px;color:var(--ink3)}
+.h1{margin:0;font-size:clamp(44px,6.6vw,92px);line-height:.94;font-weight:900;letter-spacing:-.048em}
+.h2{margin:0;font-size:clamp(34px,4.4vw,60px);line-height:.98;font-weight:900;letter-spacing:-.04em}
+.h3{margin:0;font-size:23px;line-height:1.2;font-weight:800;letter-spacing:-.02em}
+.lede{margin:0;font-size:19px;line-height:1.55;color:var(--ink2)}
+.muted{color:var(--ink3)}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:24px}
+.paper{background:var(--card);border:1px solid var(--rule2);border-radius:18px}
+.night{background:var(--night);color:var(--ntext);border-radius:22px}
+.night .lbl{color:var(--nmuted)}
+.pill{display:inline-flex;align-items:center;font-size:12px;line-height:1.4;padding:3px 10px;border:1px solid var(--rule);border-radius:999px;color:var(--ink2);font-family:'B612',sans-serif}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;padding:0 24px;border:0;border-radius:999px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;transition:transform .16s ease-out,box-shadow .16s ease-out,background-color .16s ease-out}
+.btn:hover{transform:translateY(-2px);box-shadow:0 12px 24px -14px var(--shadow)}
+.btn:active{transform:translateY(1px) scale(.985)}
+.b-blue{background:var(--blue);color:#fff}.b-blue:hover{color:#fff}
+.b-ink{background:var(--ink);color:var(--paper)}.b-ink:hover{color:var(--paper)}
+.b-line{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+.b-light{background:var(--ntext);color:var(--night)}.b-light:hover{color:var(--night)}
+.small{min-height:40px;padding:0 16px;font-size:14px}
+.linkbtn{border:0;background:none;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.linkbtn:hover{color:var(--blue)}
+.code{font-family:'B612 Mono',ui-monospace,monospace;font-size:13.5px;background:var(--night);color:var(--ntext);border-radius:12px;padding:12px 16px;overflow-x:auto;white-space:pre}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.grid12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:28px}
+.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}
+header.site{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--rule2)}
+header.site .in{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:68px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:800;font-size:18px;letter-spacing:-.02em}
+nav.main{display:flex;gap:6px;flex-wrap:wrap}
+nav.main a{text-decoration:none;color:var(--ink2);font-size:15px;padding:9px 13px;border-radius:999px;min-height:40px;display:inline-flex;align-items:center}
+nav.main a:hover{color:var(--ink);background:var(--surface)}
+nav.main a[aria-current="page"]{color:var(--ink);background:var(--card);box-shadow:0 0 0 1px var(--rule2) inset;font-weight:700}
+.status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);font-family:'B612',sans-serif}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--blue);display:inline-block;animation:pulse 2.4s ease-in-out infinite}
+main{display:block;min-height:70vh;outline:none}
+section+section{margin-top:120px}
+.bigform{display:flex;gap:10px;flex-wrap:wrap}
+.bigform input{flex:1 1 360px;min-height:64px;padding:0 24px;border:1.5px solid var(--ink);border-radius:999px;background:var(--card);color:var(--ink);font-family:'B612 Mono',monospace;font-size:18px;box-shadow:0 24px 50px -36px var(--shadow)}
+.bigform input::placeholder{color:var(--ink3)}
+.bigform .btn{min-height:64px;padding:0 34px;font-size:18px}
+textarea.yaml{width:100%;min-height:240px;resize:vertical;border:1px solid var(--rule);border-radius:16px;background:var(--card);color:var(--ink);padding:16px;font-family:'B612 Mono',monospace;font-size:14px;line-height:1.8}
+.result{padding:22px 24px;border-left:4px solid var(--rule)}
+.result.attn{border-left-color:var(--blue)}
+.status-line{margin-top:8px;font-size:18px;font-weight:800;letter-spacing:-.01em}
+.scan li{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.feed{display:flex;flex-direction:column;gap:8px}
+.feedrow{display:grid;grid-template-columns:120px minmax(0,1.25fr) minmax(0,1.6fr) 170px 74px;gap:18px;align-items:center;padding:16px 20px;text-decoration:none;color:var(--ink)}
+.feedrow:hover{color:var(--ink);border-color:var(--rule)}
+.sev-high{color:var(--blue);font-weight:700}.sev-info{color:var(--ink3)}
+.chain{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:6px}
+.chain span{height:20px;border-radius:5px;background:var(--night3);transition:background-color .2s ease-out}
+.chain span.on{background:#8EA4FF}.chain span.seal{background:var(--ntext)}
+.ledgerrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:36px}
+.stamp{position:sticky;top:96px;align-self:start;padding-left:14px;border-left:2px solid var(--ink);font-family:'B612',sans-serif;transition:border-color .25s ease-out}
+.stamp.broken{border-left-color:var(--rust)}
+.stamp .n{font-size:28px;font-weight:700;line-height:1}
+.stamp .h{font-size:12px;color:var(--ink3);margin-top:6px;word-break:break-all}
+.stamp.broken .h.me{color:var(--rust)}
+[contenteditable="true"]{outline:1px dashed var(--blue);outline-offset:6px;border-radius:4px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:12px 18px;border-radius:999px;font-size:15px;font-weight:600;z-index:20;animation:rise .3s ease-out both}
+footer.site{margin-top:140px;border-top:1px solid var(--rule2)}
+footer.site .in{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;padding-top:28px;padding-bottom:40px;font-size:14px;color:var(--ink2)}
+footer.site nav{display:flex;gap:20px;flex-wrap:wrap}
+footer.site a{color:var(--ink2);text-decoration:none}footer.site a:hover{color:var(--ink)}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+.draw{stroke-dasharray:600;animation:draw .8s cubic-bezier(.2,.8,.2,1) both}
+.rise{animation:rise .5s cubic-bezier(.2,.8,.2,1) both}
+.shake{animation:shake .4s ease-in-out both}
+input[type=range]{accent-color:var(--blue);width:100%}
+.scroll-x{overflow-x:auto}
+@media (max-width:860px){.wrap{padding:0 20px}.grid12{grid-template-columns:minmax(0,1fr)}.span5,.span6,.span7{grid-column:auto}.feedrow{grid-template-columns:minmax(0,1fr);gap:6px}.ledgerrow{grid-template-columns:minmax(0,1fr);gap:14px}.stamp{position:static}nav.main a{padding:8px 10px}section+section{margin-top:88px}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none !important;transition:none !important}.draw{stroke-dasharray:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+<div class="wrap in">
+<a href="#/" class="logo" aria-label="Refledger home">
+<svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M2 4 H26" stroke="currentColor"></path><path d="M2 10 H13 V16 H26" stroke="var(--blue)"></path></svg>
+Refledger
+</a>
+<nav class="main" aria-label="Main">
+<a href="#/" data-nav="home">Check a repo</a>
+<a href="#/moved" data-nav="moved">What moved</a>
+<a href="#/how" data-nav="how">How it works</a>
+<a href="#/verify" data-nav="verify">Verify</a>
+</nav>
+<span class="status" title="The most recent data in this preview"><span class="dot" aria-hidden="true"></span>Ledger as of 2 Oct, 16:20 UTC</span>
+</div>
+</header>
+
+<main id="main" tabindex="-1"></main>
+
+<footer class="site">
+<div class="wrap in">
+<span>Refledger records facts, never verdicts.</span>
+<nav aria-label="Footer">
+<a href="#/how">How it works</a>
+<a href="#/incidents">Incidents</a>
+<a href="#/a/reviewdog/action-actionlint">Example action</a>
+<a href="#/e/57">Latest entry</a>
+<a href="https://github.com/GautamTalksDev/refledger">Source</a>
+</nav>
+</div>
+</footer>
+
+<script>
+(function () {
+'use strict';
+
+/* data from the ledger (snapshot) */
+var NOW = Date.UTC(2026, 9, 2, 16, 20);
+var GENESIS = Date.UTC(2026, 8, 29, 18, 53);
+var WATCHED = ['actions/checkout','actions/setup-node','actions/setup-python','actions/setup-go','actions/setup-java','actions/setup-dotnet','actions/cache','actions/upload-artifact','actions/download-artifact','actions/github-script','actions/labeler','actions/attest-build-provenance','aws-actions/configure-aws-credentials','aws-actions/amazon-ecr-login','azure/login','aquasecurity/trivy-action','aquasecurity/setup-trivy','tj-actions/changed-files','tj-actions/glob','tj-actions/json2file','reviewdog/action-actionlint','reviewdog/action-setup'];
+var MOVES = {
+  'reviewdog/action-actionlint': { v1: { at: Date.UTC(2026, 9, 2, 5, 28), from: '1129829f', to: '13465d02', what: 'Floating tag moved forward to a new release', sev: 'Low', entry: 57 } }
+};
+var KNOWN = { '11bd71901bbe5b1630ceea73d27597364c9af683': 'v4.2.2' };
+var EXAMPLE_SHAS = { 'actions/checkout@v4.2.2': '11bd71901bbe5b1630ceea73d27597364c9af683' };
+var FEED = [
+  { at: Date.UTC(2026,9,2,16,18), repo: 'GautamTalksDev/canary', tag: 'v1.0.0', what: 'Code changed under an exact version', ft: 'dd02f77 to 03f050e', sev: 'High', canary: true },
+  { at: Date.UTC(2026,9,2,12,18), repo: 'GautamTalksDev/canary', tag: 'v1', what: 'Floating tag moved forward to a new release', ft: 'bc61297 to 68e25b6', sev: 'Low', canary: true },
+  { at: Date.UTC(2026,9,2,8,17), repo: 'GautamTalksDev/canary', tag: 'v9.0.0, v9.0.1, v9.0.2', what: 'Three exact tags moved to one commit together', ft: '9501ea4 to 8acdc15', sev: 'High', canary: true },
+  { at: Date.UTC(2026,9,2,5,28), repo: 'reviewdog/action-actionlint', tag: 'v1', what: 'Floating tag moved forward to a new release', ft: '1129829 to 13465d0', sev: 'Low', canary: false, href: '#/a/reviewdog/action-actionlint/v1' },
+  { at: Date.UTC(2026,9,2,4,18), repo: 'GautamTalksDev/canary', tag: 'v3.0.0', what: 'Deleted tag came back, pointing somewhere new', ft: '39a2d22 to 624e37c', sev: 'Medium', canary: true },
+  { at: Date.UTC(2026,9,2,0,18), repo: 'GautamTalksDev/canary', tag: 'v3.0.0', what: 'Tag deleted', ft: '39a2d22 to gone', sev: 'Info', canary: true },
+  { at: Date.UTC(2026,9,1,20,17), repo: 'GautamTalksDev/canary', tag: 'v2', what: 'Tag type changed, same commit', ft: 'same commit, f77ccac', sev: 'Info', canary: true },
+  { at: Date.UTC(2026,9,1,16,18), repo: 'GautamTalksDev/canary', tag: 'v2', what: 'Tag type changed, same commit', ft: 'same commit, f77ccac', sev: 'Info', canary: true, corrected: true }
+];
+var EXAMPLE = {
+  repo: 'acme/web-app',
+  files: [
+    { name: 'ci.yml', text: 'name: ci\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4.2.2\n      - run: npm ci && npm test\n      - uses: reviewdog/action-actionlint@v1\n' },
+    { name: 'release.yml', text: "name: release\non:\n  push:\n    tags: ['v*']\njobs:\n  publish:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.1.0\n      - uses: ./.github/actions/build\n      - uses: some-org/deploy-tool@main\n" }
+  ]
+};
+
+/* helpers */
+var app = document.getElementById('main');
+var timers = [];
+function clearTimers() { timers.forEach(function (t) { clearInterval(t); clearTimeout(t); }); timers = []; }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function fmt(ms) { var d = new Date(ms); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + ', ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }
+function ago(ms) { var h = Math.round((NOW - ms) / 3600000); if (h < 1) return 'less than an hour'; if (h < 48) return h + (h === 1 ? ' hour' : ' hours'); return Math.round(h / 24) + ' days'; }
+function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2200); }
+function copyText(text, okMsg) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () { toast(okMsg || 'Copied'); }, function () { fallbackCopy(text, okMsg); });
+  } else { fallbackCopy(text, okMsg); }
+}
+function fallbackCopy(text, okMsg) {
+  var ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast(okMsg || 'Copied'); } catch (e) { toast('Select the text and copy it'); }
+  ta.remove();
+}
+function watched(key) { return WATCHED.indexOf(key) !== -1; }
+
+/* workflow parsing */
+var USES = /^(\s*-?\s*)uses:\s*(['"]?)([^'"\s#]+)\2\s*(?:#\s*(.*?))?\s*$/;
+var BRANCHES = ['main','master','develop','dev','trunk','latest','stable','next','HEAD','nightly'];
+function parseFiles(files) {
+  var out = [];
+  files.forEach(function (f) {
+    f.text.split('\n').forEach(function (line, i) {
+      var m = line.match(USES); if (!m) return;
+      var spec = m[3];
+      if (spec.indexOf('./') === 0 || spec.indexOf('docker://') === 0) { out.push({ file: f.name, line: i + 1, spec: spec, kind: 'local' }); return; }
+      var at = spec.lastIndexOf('@'); if (at < 1) return;
+      var target = spec.slice(0, at), ref = spec.slice(at + 1);
+      var parts = target.split('/'); var key = parts.slice(0, 2).join('/');
+      var kind;
+      if (/^[0-9a-f]{40}$/.test(ref)) kind = 'sha';
+      else if (/^[0-9a-f]{7,39}$/.test(ref)) kind = 'short';
+      else if (BRANCHES.indexOf(ref) !== -1 || !/\d/.test(ref)) kind = 'branch';
+      else kind = 'tag';
+      out.push({ file: f.name, line: i + 1, raw: line, indent: m[1], spec: spec, target: target, key: key, ref: ref, comment: m[4] || '', kind: kind });
+    });
+  });
+  return out;
+}
+function assess(item, sha) {
+  var r = { item: item, fix: null, attn: false, link: null };
+  var w = watched(item.key);
+  if (item.kind === 'local') { r.status = 'Local or container action'; r.detail = 'Defined in your own repository or pulled by image. Moved tags upstream do not affect it.'; return r; }
+  if (item.kind === 'sha') {
+    var known = KNOWN[item.ref];
+    if (known && item.comment && item.comment !== known) {
+      r.status = 'Pinned, but the comment is wrong'; r.detail = 'This commit was never ' + item.comment + '. It is ' + known + '. The code cannot move, but the label will mislead whoever updates it next.';
+      r.fix = item.target + '@' + item.ref + ' # ' + known; r.attn = true;
+    } else { r.status = 'Pinned to a commit. Nothing to do.'; r.detail = 'This line always runs the same code.'; }
+    if (w) r.link = { href: '#/a/' + item.key, text: 'See its history' };
+    return r;
+  }
+  r.attn = true;
+  if (item.kind === 'branch') { r.status = 'Follows a branch'; r.detail = 'Branches move with every commit, so this runs whatever was pushed last.' + (w ? '' : ' We don\'t watch this one yet.'); r.fix = sha ? (item.target + '@' + sha + ' # ' + item.ref + ' at the time of pinning') : null; return r; }
+  if (item.kind === 'short') { r.status = 'A short commit hash'; r.detail = 'Short hashes can be ambiguous. Use the full 40 character commit.'; r.fix = sha ? (item.target + '@' + sha + ' # ' + item.ref) : null; return r; }
+  var mv = MOVES[item.key] && MOVES[item.key][item.ref];
+  if (w && mv) { r.status = 'Uses a tag that moved ' + ago(mv.at) + ' ago'; r.detail = mv.what + '. Pin to the new commit, or keep the old one until you have reviewed it.'; r.link = { href: '#/a/' + item.key + '/' + item.ref, text: 'See exactly what changed' }; }
+  else if (w) { r.status = 'Uses a tag that can be moved'; r.detail = 'It has not moved since we started watching on 29 September. Pinning locks in the code it runs today.'; r.link = { href: '#/a/' + item.key, text: 'See its history' }; }
+  else { r.status = 'Uses a tag we don\'t watch yet'; r.detail = 'We can still pin it to the code it runs today. We just have no history to show you.'; }
+  r.fix = sha ? (item.target + '@' + sha + ' # ' + item.ref) : null;
+  return r;
+}
+function resolveSha(item) {
+  var url = 'https://api.github.com/repos/' + item.key + '/commits/' + encodeURIComponent(item.ref);
+  return fetch(url, { headers: { Accept: 'application/vnd.github.sha' } }).then(function (res) {
+    if (!res.ok) throw new Error('status ' + res.status);
+    return res.text();
+  }).then(function (t) { t = t.trim(); if (!/^[0-9a-f]{40}$/.test(t)) throw new Error('bad sha'); return t; });
+}
+function loadRepo(repo) {
+  return fetch('https://api.github.com/repos/' + repo + '/contents/.github/workflows').then(function (res) {
+    if (res.status === 404) { var e = new Error('notfound'); e.code = 404; throw e; }
+    if (res.status === 403 || res.status === 429) { var e2 = new Error('ratelimit'); e2.code = 403; throw e2; }
+    if (!res.ok) throw new Error('status ' + res.status);
+    return res.json();
+  }).then(function (list) {
+    var ymls = (Array.isArray(list) ? list : []).filter(function (f) { return /\.ya?ml$/.test(f.name) && f.download_url; });
+    return Promise.all(ymls.map(function (f) { return fetch(f.download_url).then(function (r) { return r.text(); }).then(function (text) { return { name: f.name, text: text }; }); }));
+  });
+}
+function fixedFiles(files, results) {
+  return files.map(function (f) {
+    var lines = f.text.split('\n'); var changed = 0;
+    results.forEach(function (r) { if (r.item.file === f.name && r.fix && r.item.raw) { lines[r.item.line - 1] = r.item.indent + 'uses: ' + r.fix; changed++; } });
+    return { name: f.name, text: lines.join('\n'), changed: changed };
+  });
+}
+
+/* pages */
+var checkState = null;
+
+function pageHome() {
+  return '<div class="wrap narrow" style="padding-top:88px">' +
+  '<h1 class="h1" tabindex="-1">Is your workflow running the code you think it is?</h1>' +
+  '<p class="lede" style="margin-top:24px;max-width:640px">Enter a public GitHub repository. We check every action it uses, tell you which ones can change without you knowing, and give you the fix.</p>' +
+  '<form class="bigform" style="margin-top:40px" data-form="check">' +
+  '<label for="repo" class="lbl" style="flex-basis:100%">Repository</label>' +
+  '<input id="repo" name="repo" type="text" placeholder="your-org/your-repo" autocomplete="off" autocapitalize="off" spellcheck="false" required>' +
+  '<button type="submit" class="btn b-blue">Check</button>' +
+  '</form>' +
+  '<p class="ins muted" style="margin-top:14px;font-size:13.5px">Runs in your browser. Nothing is stored. <button type="button" class="linkbtn" data-act="paste">Paste a workflow instead</button> or <button type="button" class="linkbtn" data-act="example">try an example</button>.</p>' +
+  '<div class="card" style="margin-top:96px;padding:28px 30px">' +
+  '<div class="row" style="justify-content:space-between;align-items:flex-start;gap:24px">' +
+  '<div style="max-width:560px"><h2 class="h3">Why this matters</h2><p style="margin:8px 0 0;color:var(--ink2)">A tag like <span class="mono">@v4</span> is a pointer. Its owner, or anyone who takes over their account, can point it at different code tonight. Your workflow file won\'t change, and your next run will execute it. In March 2025, 346 tags of tj-actions/changed-files were moved this way.</p></div>' +
+  '<a href="#/how" class="btn b-line">See it happen</a>' +
+  '</div></div>' +
+  '<div style="margin-top:40px" class="row"><span class="lbl">Latest real move:</span><a href="#/a/reviewdog/action-actionlint/v1" style="font-size:15px">reviewdog/action-actionlint v1 moved forward to a new release, ' + ago(MOVES['reviewdog/action-actionlint'].v1.at) + ' ago</a></div>' +
+  '</div>';
+}
+
+function pagePaste() {
+  return '<div class="wrap narrow" style="padding-top:72px">' +
+  '<h1 class="h2" tabindex="-1">Paste a workflow file.</h1>' +
+  '<p class="lede" style="margin-top:18px">Private repository, or just one file? Paste it here. It never leaves your browser.</p>' +
+  '<form data-form="paste" style="margin-top:28px"><label for="yaml" class="lbl">Workflow YAML</label>' +
+  '<textarea id="yaml" class="yaml" spellcheck="false" style="margin-top:8px">' + esc(EXAMPLE.files[0].text) + '</textarea>' +
+  '<div class="row" style="margin-top:16px"><button type="submit" class="btn b-blue">Check this file</button><a href="#/" class="btn b-line">Back</a></div></form></div>';
+}
+
+function pageCheck() {
+  var st = checkState;
+  if (!st) { location.hash = '#/'; return ''; }
+  if (st.phase === 'scanning') {
+    return '<div class="wrap narrow" style="padding-top:110px;min-height:60vh" aria-live="polite">' +
+    '<h1 class="h2" tabindex="-1">Checking <span class="mono" style="font-size:.62em;letter-spacing:-.01em">' + esc(st.repo) + '</span></h1>' +
+    '<ol class="scan ins" style="margin:34px 0 0;padding:0;list-style:none;font-size:17px;line-height:2.2;color:var(--ink2)">' +
+    st.lines.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('') + '</ol></div>';
+  }
+  if (st.phase === 'error') {
+    return '<div class="wrap narrow" style="padding-top:110px"><h1 class="h2" tabindex="-1">' + esc(st.title) + '</h1><p class="lede" style="margin-top:18px">' + esc(st.body) + '</p>' +
+    '<div class="row" style="margin-top:28px"><a href="#/" class="btn b-blue">Try another repository</a><button type="button" class="btn b-line" data-act="paste">Paste a workflow instead</button></div></div>';
+  }
+  var res = st.results.filter(function (r) { return r.item.kind !== 'local'; });
+  var risky = res.filter(function (r) { return ['tag', 'branch', 'short'].indexOf(r.item.kind) !== -1; }).length;
+  var fixable = st.results.filter(function (r) { return r.fix; }).length;
+  var head;
+  if (res.length === 0) head = 'We didn\'t find any actions to check.';
+  else if (risky === 0 && fixable === 0) head = 'All ' + res.length + ' of your actions are pinned. Nothing can change under you.';
+  else if (risky === 0) head = 'Your actions are pinned, but ' + fixable + (fixable === 1 ? ' comment is' : ' comments are') + ' wrong.';
+  else head = risky + ' of your ' + res.length + ' actions can change without you knowing.';
+  var sub = fixable ? 'One copy fixes what we can: each action pinned to the exact code it runs today, with a comment saying which version that is.' + (st.results.some(function (r) { return r.item.kind === 'branch' && !r.fix; }) ? ' Branches are your call.' : '') : 'Nothing for us to fix here.';
+  var html = '<div class="wrap narrow" style="padding-top:56px">' +
+  '<div class="row" style="justify-content:space-between"><span class="mono" style="font-size:15px;color:var(--ink2)">' + esc(st.repo) + '</span><span class="row">' + (st.example ? '<span class="pill">' + esc(st.exampleNote || 'Example') + '</span>' : '') + '<a href="#/" class="btn b-line small">Check another</a></span></div>' +
+  '<h1 class="h2 rise" tabindex="-1" style="margin-top:28px">' + esc(head) + '</h1>' +
+  '<p class="lede" style="margin-top:18px;max-width:680px">' + esc(sub) + '</p>';
+  if (fixable) html += '<div class="row" style="margin-top:28px"><button type="button" class="btn b-blue" data-act="copyfixed" style="min-height:60px;padding:0 30px;font-size:17px">Copy the fixed workflows</button><span class="ins muted" style="font-size:14px">' + fixable + (fixable === 1 ? ' line changes' : ' lines change') + '. Nothing else is touched.</span></div>';
+  if (st.unresolved) html += '<p class="ins" style="margin-top:14px;font-size:13.5px;color:var(--ink3)">' + esc(st.unresolved) + '</p>';
+  html += '<ol style="margin:48px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px">';
+  st.results.forEach(function (r) {
+    html += '<li class="paper result' + (r.attn ? ' attn' : '') + '">' +
+    '<div class="row" style="justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:15px;font-weight:700;word-break:break-all">' + esc(r.item.spec) + (r.item.comment ? ' <span style="font-weight:400;color:var(--ink3)"># ' + esc(r.item.comment) + '</span>' : '') + '</span><span class="lbl">' + esc(r.item.file) + ', line ' + r.item.line + '</span></div>' +
+    '<div class="status-line" style="color:' + (r.attn ? 'var(--blue)' : 'var(--ink)') + '">' + esc(r.status) + '</div>' +
+    '<p style="margin:6px 0 0;color:var(--ink2)">' + esc(r.detail) + '</p>' +
+    (r.fix ? '<div class="code" style="margin-top:14px">uses: ' + esc(r.fix) + '</div>' : '') +
+    (r.link ? '<a href="' + r.link.href + '" style="margin-top:12px;display:inline-block;font-weight:600;font-size:15px">' + esc(r.link.text) + '</a>' : '') +
+    '</li>';
+  });
+  html += '</ol>' +
+  '<div class="night" style="margin-top:56px;padding:32px"><div class="row" style="justify-content:space-between;gap:24px"><div style="max-width:560px"><h2 class="h3" style="color:var(--ntext)">Want to know if one of these moves?</h2><p style="margin:8px 0 0;color:var(--nmuted)">We check every watched action every five minutes, and publish every move.</p></div><a href="#/moved" class="btn b-light">Follow what moves</a></div></div>' +
+  '<p class="lbl" style="margin-top:20px">We describe what moved and when. Whether to trust an action is your call.</p></div>';
+  return html;
+}
+
+function runCheck(source) {
+  checkState = { phase: 'scanning', repo: source.repo || 'Pasted workflow', lines: [] };
+  location.hash = '#/check';
+  var say = function (l) { checkState.lines.push(l); if (route().name === 'check' && checkState.phase === 'scanning') render(); };
+  var useExample = function (note) {
+    var files = EXAMPLE.files;
+    say('Reading the example workflows');
+    var items = parseFiles(files);
+    finish(files, items, function (it) { return EXAMPLE_SHAS[it.key + '@' + it.ref] || null; }, true, note, EXAMPLE.repo);
+  };
+  var finish = function (files, items, shaOf, isExample, note, repoName) {
+    say('Found ' + items.filter(function (i) { return i.kind !== 'local'; }).length + ' actions in ' + files.length + (files.length === 1 ? ' file' : ' files'));
+    say('Checking each one against the ledger');
+    var t = setTimeout(function () {
+      var results = items.map(function (it) { return assess(it, shaOf(it)); });
+      var unresolved = items.filter(function (it) { return ['tag', 'branch', 'short'].indexOf(it.kind) !== -1 && !shaOf(it); }).length;
+      checkState = { phase: 'done', repo: repoName || checkState.repo, files: files, results: results, example: isExample, exampleNote: note,
+        unresolved: unresolved ? (unresolved + (unresolved === 1 ? ' action' : ' actions') + ' could not be resolved to a commit right now, so ' + (unresolved === 1 ? 'it has' : 'they have') + ' no fix line yet.') : '' };
+      render();
+    }, 650);
+  };
+  if (source.example) { setTimeout(function () { useExample('Example'); }, 300); return; }
+  if (source.files) {
+    say('Reading your workflow');
+    var items = parseFiles(source.files);
+    var need = items.filter(function (i) { return ['tag', 'branch', 'short'].indexOf(i.kind) !== -1; });
+    say('Resolving ' + need.length + ' tags to their commits');
+    var shas = {};
+    Promise.all(need.map(function (it) { return resolveSha(it).then(function (s) { shas[it.key + '@' + it.ref] = s; }, function () {}); })).then(function () {
+      finish(source.files, items, function (it) { return shas[it.key + '@' + it.ref] || EXAMPLE_SHAS[it.key + '@' + it.ref] || null; }, false, '', 'Pasted workflow');
+    });
+    return;
+  }
+  var repo = source.repo.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '').replace(/\.git$/, '');
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+    checkState = { phase: 'error', title: 'That doesn\'t look like a repository.', body: 'Use the owner and name, like actions/checkout or your-org/your-repo.' }; render(); return;
+  }
+  checkState.repo = repo;
+  say('Reading .github/workflows');
+  loadRepo(repo).then(function (files) {
+    if (!files.length) { checkState = { phase: 'error', title: 'No workflows found.', body: repo + ' has no files in .github/workflows, so there is nothing to check.' }; render(); return; }
+    say('Found ' + files.map(function (f) { return f.name; }).join(', '));
+    var items = parseFiles(files);
+    var need = items.filter(function (i) { return ['tag', 'branch', 'short'].indexOf(i.kind) !== -1; });
+    var uniq = {}; need.forEach(function (i) { uniq[i.key + '@' + i.ref] = i; });
+    var keys = Object.keys(uniq);
+    say('Resolving ' + keys.length + (keys.length === 1 ? ' tag' : ' tags') + ' to their commits');
+    var shas = {};
+    Promise.all(keys.map(function (k) { return resolveSha(uniq[k]).then(function (s) { shas[k] = s; }, function () {}); })).then(function () {
+      finish(files, items, function (it) { return shas[it.key + '@' + it.ref] || null; }, false, '', repo);
+    });
+  }, function (err) {
+    if (err && err.code === 404) { checkState = { phase: 'error', title: 'We couldn\'t find that repository.', body: 'It needs to be public, and to have workflows in .github/workflows. For a private repository, paste a workflow file instead.' }; render(); return; }
+    if (err && err.code === 403) { checkState = { phase: 'error', title: 'GitHub asked us to slow down.', body: 'Your browser has used its hourly allowance of GitHub lookups. Try again in a little while, or paste a workflow file instead.' }; render(); return; }
+    useExample('Example: live lookups are blocked here');
+  });
+}
+
+function pageMoved(q) {
+  var on = q.canary === '1';
+  var rows = FEED.filter(function (r) { return on || !r.canary; });
+  var eco = FEED.filter(function (r) { return !r.canary; }).length;
+  var html = '<div class="wrap" style="padding-top:72px">' +
+  '<div class="row" style="justify-content:space-between;align-items:flex-end;gap:24px"><div><h1 class="h1" tabindex="-1">What moved.</h1><p class="lede" style="margin-top:20px;max-width:640px">Every tag move we have recorded, newest first. The time is the check that first saw it. The real moment falls within the five minutes before.</p></div><a href="#/moved" class="btn b-line" data-act="rss">Follow with RSS</a></div>' +
+  '<div class="row" style="margin-top:36px"><a href="#/moved" class="btn small ' + (on ? 'b-line' : 'b-ink') + '" aria-current="' + (!on) + '">Ecosystem</a><a href="#/moved?canary=1" class="btn small ' + (on ? 'b-ink' : 'b-line') + '" aria-current="' + on + '">Include canary tests</a><span class="lbl" style="margin-left:6px">' + (on ? rows.length + ' moves, ' + (rows.length - eco) + ' of them our own tests' : eco + (eco === 1 ? ' ecosystem move' : ' ecosystem moves') + ' this week') + '</span></div>' +
+  '<div class="feed" style="margin-top:22px"><div class="feedrow ins" style="font-size:12px;color:var(--ink3);padding-top:0;padding-bottom:0" aria-hidden="true"><span>Seen, UTC</span><span>Action and tag</span><span>What changed</span><span>From, to</span><span>Severity</span></div>';
+  rows.forEach(function (r) {
+    html += '<a class="paper feedrow rise" href="' + (r.href || '#/e/57') + '"><span class="ins" style="font-size:14px">' + fmt(r.at) + '</span><span><b>' + esc(r.repo) + '</b> <span class="mono" style="font-size:13px">' + esc(r.tag) + '</span>' + (r.canary ? ' <span class="pill" style="margin-left:4px">Canary</span>' : '') + '</span><span style="color:var(--ink2)">' + esc(r.what) + (r.corrected ? '<span class="ins" style="display:block;margin-top:4px;font-size:12.5px;color:var(--rust)">Corrected: the signed entry called this a content change. It was not.</span>' : '') + '</span><span class="mono" style="font-size:13px">' + esc(r.ft) + '</span><span class="ins ' + (r.sev === 'High' ? 'sev-high' : (r.sev === 'Info' ? 'sev-info' : '')) + '" style="font-size:13px">' + r.sev + '</span></a>';
+  });
+  if (!on) html += '<p class="ins muted" style="margin-top:8px;font-size:14px">The canary is a repository of ours whose tags we move on purpose, every four hours, to prove we notice. <a href="#/moved?canary=1">Show its moves</a></p>';
+  return html + '</div></div>';
+}
+
+function wallSVG(t, rowsList, w, h) {
+  var X0 = 270, X1 = w - 20, W = X1 - X0, total = (NOW - GENESIS) / 3600000;
+  var hx = function (hrs) { return X0 + hrs / total * W; };
+  var hours = t / 100 * total, cx = X0 + t / 100 * W;
+  var gs = hx(29.15), ge = hx(30.23), rj = hx(58.58);
+  var seg = function (y, end) { if (end <= gs) return 'M' + X0 + ' ' + y + ' H' + end; if (end <= ge) return 'M' + X0 + ' ' + y + ' H' + gs; return 'M' + X0 + ' ' + y + ' H' + gs + ' M' + ge + ' ' + y + ' H' + end; };
+  var s = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="display:block;width:100%;min-width:720px;height:auto" role="img" aria-label="Watched actions drawn as lines through time, up to ' + fmt(GENESIS + hours * 3600000) + ' UTC">';
+  s += '<g font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6"><text x="' + X0 + '" y="16">29 Sep</text><text x="' + hx(29.12) + '" y="16" text-anchor="middle">1 Oct</text><text x="' + hx(53.12) + '" y="16" text-anchor="middle">2 Oct</text></g>';
+  s += '<line x1="' + X0 + '" y1="26" x2="' + X1 + '" y2="26" stroke="currentColor" stroke-opacity=".25"></line>';
+  [5.12, 29.12, 53.12].forEach(function (d) { if (d <= hours) s += '<rect x="' + (hx(d) - 3.5) + '" y="22.5" width="7" height="7" transform="rotate(45 ' + hx(d) + ' 26)" fill="currentColor"></rect>'; });
+  if (cx > gs) s += '<rect x="' + gs + '" y="32" width="' + (Math.min(cx, ge) - gs) + '" height="' + (h - 44) + '" fill="currentColor" fill-opacity=".12"></rect>';
+  rowsList.forEach(function (name, i) {
+    var y = 52 + i * 30;
+    s += '<text x="' + (X0 - 14) + '" y="' + (y + 4) + '" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity="' + (i === 0 ? 1 : .75) + '">' + name + '</text>';
+    s += '<path d="' + seg(y, i === 0 ? Math.min(cx, rj) : cx) + '" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"></path>';
+    if (i === 0 && cx > rj) s += '<path d="M' + rj + ' ' + y + ' V' + (y + 8) + ' H' + cx + '" stroke="var(--blue)" stroke-width="2.6" fill="none" stroke-linecap="round"></path><circle cx="' + rj + '" cy="' + (y + 4) + '" r="4.5" fill="var(--blue)"></circle>';
+  });
+  var cy = 52 + rowsList.length * 30 + 10;
+  s += '<text x="' + (X0 - 14) + '" y="' + (cy + 4) + '" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity=".6">Canary, our test repo</text>';
+  s += '<line x1="' + X0 + '" y1="' + cy + '" x2="' + cx + '" y2="' + cy + '" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="2 4"></line>';
+  [10.23, 30.23, 31.42, 33.4, 37.42, 41.4, 45.42, 49.4, 53.42, 57.42, 61.4, 65.42, 69.42].forEach(function (hh) { if (hh <= hours) s += '<circle cx="' + hx(hh) + '" cy="' + cy + '" r="3" fill="var(--blue)"></circle>'; });
+  s += '<line x1="' + cx + '" y1="28" x2="' + cx + '" y2="' + (h - 8) + '" stroke="var(--blue)" stroke-width="1.5"></line></svg>';
+  return s;
+}
+var EVENTS = [
+  { h: 0, text: 'Genesis. Watching begins.' }, { h: 5.12, text: 'First day sealed and witnessed.' },
+  { h: 10.23, text: 'Canary test: a tag deleted on purpose.' }, { h: 29.15, text: 'Our poller went down. The gap is recorded, not hidden.' },
+  { h: 30.23, text: 'Back up. Missed moves recorded on recovery.' }, { h: 31.42, text: 'Canary test: three tags moved to one commit.' },
+  { h: 53.12, text: 'Day sealed and witnessed.' }, { h: 58.58, text: 'A real move: reviewdog v1, a normal release.' }, { h: 69.4, text: 'Now.' }
+];
+var WALL_ROWS = ['reviewdog/action-actionlint', 'actions/checkout', 'actions/setup-node', 'actions/cache', 'aws-actions/configure-aws-credentials', 'aquasecurity/trivy-action', 'tj-actions/changed-files'];
+
+function pageHow() {
+  return '<div class="wrap" style="padding-top:72px">' +
+  '<h1 class="h1" tabindex="-1">How it works.</h1>' +
+  '<p class="lede" style="margin-top:20px;max-width:620px">Three things to try. Each one takes ten seconds, and each one is exactly what Refledger does.</p>' +
+
+  '<div class="ledgerrow" style="margin-top:80px" data-sec="1"><div class="stamp" data-stamp="1"><div class="n">1</div><div class="h" data-prev></div><div class="h me" data-hash></div></div><div>' +
+  '<h2 class="h2" data-text>A tag is a pointer. Go on, move it.</h2>' +
+  '<p class="lede" style="margin-top:18px;max-width:600px" data-text>This is the whole attack. It takes one second, and nothing in your repository changes.</p>' +
+  '<div class="card" style="margin-top:32px;overflow:hidden"><div class="grid12" style="gap:0">' +
+  '<div class="span7" style="padding:28px 28px 8px"><svg viewBox="0 0 640 200" style="display:block;width:100%;height:auto" role="img" aria-live="polite" id="toy-svg"></svg></div>' +
+  '<div class="span5 night" style="margin:14px;padding:22px;border-radius:16px"><div class="lbl">Your next CI run</div><div class="mono" id="toy-run" style="margin-top:10px;font-size:13px;line-height:1.9"></div></div></div>' +
+  '<div class="row" style="justify-content:space-between;padding:16px 28px 24px;border-top:1px solid var(--rule2)"><p aria-live="polite" id="toy-msg" style="margin:0;max-width:520px;color:var(--ink2)"></p><div class="row" id="toy-btns"></div></div>' +
+  '<div style="border-top:1px solid var(--rule2);background:var(--card);padding:16px 28px 20px"><div class="lbl">The ledger</div><div id="toy-ledger" style="margin-top:10px"></div></div></div></div></div>' +
+
+  '<div class="ledgerrow" style="margin-top:140px" data-sec="2"><div class="stamp" data-stamp="2"><div class="n">2</div><div class="h" data-prev></div><div class="h me" data-hash></div></div><div>' +
+  '<div class="row" style="justify-content:space-between;align-items:flex-end;gap:24px"><div><h2 class="h2" data-text>We watch for it, every five minutes.</h2><p class="lede" style="margin-top:18px;max-width:600px" data-text>38 actions from 35 repositories, chosen for heavy use and past incidents, plus everything they depend on. Press play to watch three days pass.</p></div>' +
+  '<div style="text-align:right"><div class="lbl">Instrument clock, UTC</div><div class="ins" id="clock" aria-live="polite" style="font-size:40px;font-weight:700;font-variant-numeric:tabular-nums"></div></div></div>' +
+  '<div class="card" style="margin-top:28px;padding:22px 22px 16px"><div class="scroll-x" id="wall"></div>' +
+  '<div class="row" style="margin-top:12px"><button type="button" class="btn b-blue small" data-act="play" id="playbtn" style="min-width:104px">Play</button><label for="scrub" class="lbl">Time</label><input id="scrub" type="range" min="0" max="100" step="0.25" value="100" style="flex:1 1 280px;width:auto;min-height:40px"><span class="ins" id="latest" style="font-size:13.5px;color:var(--ink2);min-width:260px"></span></div></div>' +
+  '</div></div>' +
+
+  '<div class="ledgerrow" style="margin-top:140px" data-sec="3"><div class="stamp" data-stamp="3"><div class="n">3</div><div class="h" data-prev></div><div class="h me" data-hash></div></div><div>' +
+  '<h2 class="h2" data-text>Every move is signed and chained.</h2>' +
+  '<p class="lede" style="margin-top:18px;max-width:620px" data-text>Each entry includes the hash of the one before it. Change one byte anywhere, and every entry after it stops matching. That is why nobody, including us, can quietly rewrite the record.</p></div></div>' +
+
+  '<div class="ledgerrow" style="margin-top:140px" data-sec="4"><div class="stamp" data-stamp="4"><div class="n">4</div><div class="h" data-prev></div><div class="h me" data-hash></div></div><div>' +
+  '<h2 class="h2" data-text>This page works the same way.</h2>' +
+  '<p class="lede" style="margin-top:18px;max-width:620px" data-text>Look at the margin. Each section above is hashed with SHA-256 in your browser and chained to the one before. Edit any word and see where the chain breaks.</p>' +
+  '<div class="row" style="margin-top:26px"><button type="button" class="btn b-ink" data-act="tamper" id="tamperbtn">Change one word</button><button type="button" class="btn b-line" data-act="editpage" id="editbtn">Edit the page yourself</button></div>' +
+  '<p class="ins" id="verdict" aria-live="polite" style="margin-top:16px;font-size:15px;font-weight:700"></p>' +
+  '</div></div>' +
+
+  '<section style="margin-top:140px" class="grid12"><div class="span7 card" style="padding:28px 30px"><h2 class="h3">What we watch, and why</h2><p style="margin:10px 0 0;color:var(--ink2)">38 actions from 35 repositories. Not all of GitHub, on purpose: a short list watched perfectly beats a long one watched badly.</p><ul style="margin:14px 0 0;padding-left:20px;color:var(--ink2);line-height:1.8"><li>Heavily used official actions from GitHub, AWS, Azure and others.</li><li>Actions involved in real incidents.</li><li>Everything those actions pull in themselves, at every tag.</li><li>One canary of our own, moved on purpose to test the instrument.</li></ul></div>' +
+  '<div class="span5 night" style="padding:28px 30px"><h2 class="h3" style="color:var(--ntext)">Don\'t trust us. Check us.</h2><p style="margin:10px 0 0;color:var(--nmuted)">Replay the whole ledger in your browser, recompute every hash, and check every signature.</p><a href="#/verify" class="btn b-light" style="margin-top:20px">Verify the ledger</a></div></section>' +
+  '</div>';
+}
+
+var toy = { moved: false, erased: false };
+function drawToy() {
+  var svg = document.getElementById('toy-svg'); if (!svg) return;
+  var m = toy.moved;
+  svg.setAttribute('aria-label', m ? 'The tag v1.0.0 now points at code nobody reviewed.' : 'The tag v1.0.0 points at the code you reviewed.');
+  svg.innerHTML = '<g font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity=".65"><text x="0" y="16">Your workflow</text><text x="360" y="16">The action\'s repository</text></g>' +
+    '<rect x="0" y="36" width="180" height="50" rx="25" fill="var(--ink)"></rect><text x="90" y="67" text-anchor="middle" font-family="B612 Mono, monospace" font-size="15" fill="var(--paper)">@v1.0.0</text>' +
+    '<rect x="360" y="36" width="280" height="50" rx="13" fill="var(--card)" stroke="' + (m ? 'var(--rule)' : 'var(--ink)') + '" stroke-width="1.5"></rect><text x="378" y="59" font-family="B612 Mono, monospace" font-size="14" fill="currentColor" opacity="' + (m ? .45 : 1) + '">a1b2c3d</text><text x="378" y="76" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Reviewed by you on Monday</text>' +
+    '<rect x="360" y="136" width="280" height="50" rx="13" fill="var(--card)" stroke="' + (m ? 'var(--blue)' : 'var(--rule)') + '" stroke-width="1.5" stroke-dasharray="' + (m ? '0' : '5 5') + '"></rect><text x="378" y="159" font-family="B612 Mono, monospace" font-size="14" fill="' + (m ? 'var(--blue)' : 'currentColor') + '" opacity="' + (m ? 1 : .45) + '">0e58ed8</text><text x="378" y="176" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Pushed tonight. Reviewed by nobody.</text>' +
+    (m ? '<path d="M180 61 H270" stroke="currentColor" stroke-width="2.4" fill="none"></path><path class="draw" d="M270 61 V161 H360" stroke="var(--blue)" stroke-width="2.6" fill="none"></path><circle cx="270" cy="111" r="5.5" fill="var(--blue)"></circle>'
+       : '<path class="draw" d="M180 61 H360" stroke="currentColor" stroke-width="2.4" fill="none"></path>');
+  document.getElementById('toy-run').innerHTML = 'Run some-org/action@v1.0.0<br>Resolving tag v1.0.0<br>Resolved to <b style="color:' + (m ? '#8EA4FF' : 'inherit') + '">' + (m ? '0e58ed8' : 'a1b2c3d') + '</b><br><span style="color:' + (m ? '#8EA4FF' : 'var(--nmuted)') + '">' + (m ? 'Running code nobody reviewed.' : 'Running the code you reviewed.') + '</span>';
+  document.getElementById('toy-msg').textContent = !m ? 'Your workflow says @v1.0.0. Right now, that means the code you reviewed.' : (toy.erased ? 'Refused. Entries can never be edited or removed. A mistake gets a new correction entry, chained after it, in public.' : 'Same label. Different code. Your next run executes it, and now there is a signed record of when it changed.');
+  document.getElementById('toy-btns').innerHTML = !m ? '<button type="button" class="btn b-blue" data-act="toymove">Move the tag</button>' : ((toy.erased ? '' : '<button type="button" class="btn b-ink" data-act="toyerase">Now try to erase the record</button>') + '<button type="button" class="btn b-line" data-act="toyreset">Play again</button>');
+  document.getElementById('toy-ledger').innerHTML = !m ? '<span class="ins muted" style="font-size:14px">Nothing has moved. Nothing to write down.</span>' :
+    '<div class="' + (toy.erased ? 'shake' : 'rise') + '" style="display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 16px;border:1px solid var(--blue-line);border-radius:12px;background:var(--blue-soft);font-size:15px"><span class="mono" style="font-size:13px;color:var(--blue)">seq 1</span><span><b>v1.0.0</b> moved from <span class="mono" style="font-size:13px">a1b2c3d</span> to <span class="mono" style="font-size:13px">0e58ed8</span></span><span class="ins" style="font-size:13px;font-weight:700;color:var(--blue)">Signed</span></div>';
+}
+var scrub = { t: 100, playing: null };
+function drawWall() {
+  var el = document.getElementById('wall'); if (!el) return;
+  el.innerHTML = wallSVG(scrub.t, WALL_ROWS, 1000, 52 + WALL_ROWS.length * 30 + 24);
+  var hours = scrub.t / 100 * ((NOW - GENESIS) / 3600000);
+  document.getElementById('clock').textContent = fmt(GENESIS + hours * 3600000);
+  var latest = EVENTS[0].text; EVENTS.forEach(function (e) { if (e.h <= hours) latest = e.text; });
+  document.getElementById('latest').textContent = latest;
+  var r = document.getElementById('scrub'); if (r && Number(r.value) !== scrub.t) r.value = scrub.t;
+  var b = document.getElementById('playbtn'); if (b) { b.textContent = scrub.playing ? 'Pause' : (scrub.t >= 100 ? 'Replay' : 'Play'); b.setAttribute('aria-pressed', scrub.playing ? 'true' : 'false'); }
+}
+function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+var baseline = null;
+function rehash() {
+  var secs = Array.prototype.slice.call(document.querySelectorAll('[data-sec]')); if (!secs.length) return;
+  var texts = secs.map(function (s) { return Array.prototype.map.call(s.querySelectorAll('[data-text]'), function (n) { return n.textContent; }).join('\n'); });
+  if (!(window.crypto && crypto.subtle)) { var v = document.getElementById('verdict'); if (v) v.textContent = 'Your browser can\'t compute SHA-256 here, so the margin is not live.'; return; }
+  var prev = '0'.repeat(64); var chain = [];
+  var step = function (i) {
+    if (i >= texts.length) { done(chain); return; }
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(prev + '\n' + texts[i])).then(function (buf) { var h = hex(buf); chain.push({ prev: prev, hash: h }); prev = h; step(i + 1); });
+  };
+  var done = function (c) {
+    if (!baseline) baseline = c.map(function (x) { return x.hash; });
+    var firstBad = -1; c.forEach(function (x, i) { if (firstBad === -1 && x.hash !== baseline[i]) firstBad = i; });
+    secs.forEach(function (s, i) {
+      var st = s.querySelector('[data-stamp]'); if (!st) return;
+      st.querySelector('[data-prev]').textContent = 'prev ' + c[i].prev.slice(0, 8);
+      st.querySelector('[data-hash]').textContent = 'hash ' + c[i].hash.slice(0, 8);
+      st.classList.toggle('broken', firstBad !== -1 && i >= firstBad);
+    });
+    var v = document.getElementById('verdict');
+    if (v) { v.style.color = firstBad === -1 ? 'var(--blue)' : 'var(--rust)'; v.textContent = firstBad === -1 ? 'Page integrity verified. ' + c.length + ' of ' + c.length + ' sections chained, hashed live in your browser.' : 'Chain broken at section ' + (firstBad + 1) + '. Every section after it no longer matches what came before.'; }
+    var tb = document.getElementById('tamperbtn'); if (tb) tb.textContent = firstBad === -1 ? 'Change one word' : 'Undo the change';
+  };
+  step(0);
+}
+
+function pageVerify() {
+  var cells = ''; for (var i = 0; i < 64; i++) cells += '<span data-c="' + i + '"></span>';
+  return '<div class="wrap" style="padding-top:72px">' +
+  '<h1 class="h1" tabindex="-1">Don\'t trust us.<br><span style="color:var(--blue)">Check us.</span></h1>' +
+  '<p class="lede" style="margin-top:22px;max-width:640px">One click replays every entry in the ledger, recomputes every hash and checks every signature, in your browser. Nothing to install, nobody to trust.</p>' +
+  '<div class="night" style="margin-top:44px;padding:32px"><div class="row" style="justify-content:space-between"><button type="button" class="btn b-light" data-act="verify" id="vbtn">Verify the whole ledger</button><span class="ins" id="vstatus" aria-live="polite" style="font-size:15px;color:var(--nmuted)">64 entries ready.</span></div>' +
+  '<div class="chain" aria-hidden="true" style="margin-top:28px" id="vchain">' + cells + '</div><div id="vresult"></div>' +
+  '<p class="lbl" style="margin-top:18px">In this preview the check is animated. On the live site it runs on the published ledger.</p></div>' +
+  '<section class="grid12" style="margin-top:80px"><div class="span5"><h2 class="h3">Prefer your own terminal?</h2><p style="margin:10px 0 0;color:var(--ink2)">The command line verifier shares no code with the program that writes the ledger. That is the point: two independent programs agreeing is evidence. One agreeing with itself is not.</p></div>' +
+  '<div class="span7 paper" style="padding:22px 24px"><div class="row" style="justify-content:space-between"><span class="lbl">From a clone of the repository</span><button type="button" class="btn b-line small" data-act="copycli">Copy</button></div>' +
+  '<pre class="mono" style="margin:12px 0 0;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-all"><code id="cli">cargo run --locked --release -p refledger-verify -- data/log --strict --pubkey b3e7e795c35dee53731e039b76da930fc54e87e2edc632449a8a2e55252e276a</code></pre></div></section>' +
+  '</div>';
+}
+
+function pageAction(key) {
+  var w = watched(key); var mv = MOVES[key];
+  if (!w) return page404();
+  var moved = mv ? Object.keys(mv) : [];
+  var html = '<div class="wrap" style="padding-top:56px">' +
+  '<nav aria-label="Breadcrumb" class="lbl"><a href="#/moved" style="color:inherit">Watched actions</a> / ' + esc(key.split('/')[0]) + '</nav>' +
+  '<h1 class="h1" tabindex="-1" style="margin-top:14px;font-size:clamp(40px,5.6vw,80px);word-break:break-word">' + esc(key) + '</h1>' +
+  '<p class="lede" style="margin-top:20px;max-width:720px">' + (moved.length ? 'Watched since 29 September. One tag has moved since then: <b>' + esc(moved[0]) + '</b>, ' + esc(mv[moved[0]].what.toLowerCase()) + ' on ' + fmt(mv[moved[0]].at).split(',')[0] + '.' : 'Watched since 29 September. None of its tags have moved since then.') + '</p>' +
+  '<dl class="ins" style="margin:32px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)">' +
+  '<div style="padding:16px 0"><dt class="lbl">Watching since</dt><dd style="margin:6px 0 0">29 Sep, 18:53 UTC</dd></div><div style="padding:16px 0"><dt class="lbl">Checked</dt><dd style="margin:6px 0 0">Every 5 minutes</dd></div>' +
+  '<div style="padding:16px 0"><dt class="lbl">Last change</dt><dd style="margin:6px 0 0">' + (moved.length ? fmt(mv[moved[0]].at) + ' UTC' : 'None seen') + '</dd></div><div style="padding:16px 0"><dt class="lbl">Upstream</dt><dd style="margin:6px 0 0"><a href="https://github.com/' + esc(key) + '">github.com/' + esc(key) + '</a></dd></div></dl>';
+  if (moved.length) {
+    var tg = moved[0], m = mv[tg];
+    html += '<section style="margin-top:72px"><h2 class="h3">Pin it</h2><div class="night row" style="margin-top:16px;padding:10px 10px 10px 22px;justify-content:space-between"><span class="mono" style="font-size:14.5px;word-break:break-all">uses: ' + esc(key) + '@' + m.to + '... # ' + esc(tg) + '</span><button type="button" class="btn small" style="background:var(--night3);color:var(--ntext)" data-act="copypin" data-text="uses: ' + esc(key) + '@' + m.to + ' # ' + esc(tg) + '">Copy</button></div><p class="lbl" style="margin-top:10px">This binding is ' + ago(m.at) + ' old. ' + esc(tg) + ' is a floating tag and will move again with the next release.</p></section>' +
+    '<section style="margin-top:72px" class="card"><div style="padding:28px 30px"><h2 class="h3">Ask the archive</h2><p style="margin:8px 0 0;color:var(--ink2)">What did ' + esc(tg) + ' point at, at a moment in the past? Only a record kept at the time can answer.</p>' +
+    '<div class="row" style="margin-top:20px" role="group" aria-label="Pick a moment" id="moments">' + [['29 Sep, 18:53', m.from, 'The first time we looked.'], ['1 Oct, 12:00', m.from, 'Unchanged.'], ['2 Oct, 06:00', m.to, '32 minutes after it moved.'], ['Now', m.to, 'Current binding.']].map(function (x, i) { return '<button type="button" class="btn small ' + (i === 3 ? 'b-ink' : 'b-line') + '" data-act="moment" data-sha="' + x[1] + '" data-note="' + esc(x[2]) + '" aria-pressed="' + (i === 3) + '">' + x[0] + '</button>'; }).join('') + '</div>' +
+    '<div aria-live="polite" class="row" style="margin-top:22px;align-items:baseline"><span class="ins" style="color:var(--ink2)">' + esc(tg) + ' pointed at</span><span class="mono" id="mo-sha" style="font-size:30px;font-weight:700;color:var(--blue)">' + m.to + '</span><span class="ins muted" id="mo-note" style="font-size:14px">Current binding.</span></div></div></section>' +
+    '<section style="margin-top:72px"><h2 class="h3">History</h2><a href="#/a/' + esc(key) + '/' + esc(tg) + '" class="paper feedrow" style="margin-top:14px"><span class="ins" style="font-size:14px">' + fmt(m.at) + '</span><span class="mono" style="font-weight:700">' + esc(tg) + '</span><span style="color:var(--ink2)">' + esc(m.what) + '</span><span class="mono" style="font-size:13px">' + m.from.slice(0, 7) + ' to ' + m.to.slice(0, 7) + '</span><span class="ins muted" style="font-size:13px">Entry ' + m.entry + '</span></a></section>';
+  } else {
+    html += '<section style="margin-top:72px" class="card"><div style="padding:28px 30px"><h2 class="h3">Nothing has moved</h2><p style="margin:8px 0 0;color:var(--ink2)">Every tag of this action has pointed at the same commit at every check since we started watching. To lock that in for your workflow, <a href="#/">check your repository</a> and copy the pinned lines.</p></div></section>';
+  }
+  return html + '<p class="lbl" style="margin-top:24px">This page says what moved and when. It never says whether an action is safe. That call is yours.</p></div>';
+}
+
+function pageTag(key, tg) {
+  var m = MOVES[key] && MOVES[key][tg]; if (!m) return pageAction(key);
+  var held1 = (m.at - GENESIS) / 3600000, held2 = (NOW - m.at) / 3600000;
+  var dur = function (h) { var d = Math.floor(h / 24), r = Math.round(h - d * 24); return (d ? d + (d === 1 ? ' day, ' : ' days, ') : '') + r + (r === 1 ? ' hour' : ' hours'); };
+  var step = function (when, dotColor, title, body, extra) {
+    return '<li style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"><span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px">' + when + '</span><span aria-hidden="true" style="position:relative"><span style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"></span><span style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:' + dotColor + '"></span></span><div><div class="h3" style="font-size:21px">' + title + '</div><p style="margin:6px 0 0;color:var(--ink2)">' + body + '</p>' + (extra || '') + '</div></li>';
+  };
+  return '<div class="wrap" style="padding-top:56px">' +
+  '<nav aria-label="Breadcrumb" class="lbl"><a href="#/moved" style="color:inherit">Watched actions</a> / <a href="#/a/' + esc(key) + '" style="color:inherit">' + esc(key) + '</a> / ' + esc(tg) + '</nav>' +
+  '<div class="grid12" style="margin-top:18px;align-items:end"><h1 class="mono span5" tabindex="-1" style="margin:0;font-size:clamp(96px,14vw,190px);line-height:.82;font-weight:700;letter-spacing:-.06em">' + esc(tg) + '</h1><p class="lede span7" style="margin-bottom:12px">A floating tag of ' + esc(key) + '. It is meant to move forward with every release. Since we started watching, it has moved once, forward, onto a new release.</p></div>' +
+  '<h2 class="h3" style="margin-top:72px">Its life, as we recorded it</h2><ol style="margin:28px 0 0;padding:0;list-style:none">' +
+  step('29 Sep, 18:53 UTC', 'var(--ink)', 'First seen, pointing at <span class="mono">' + m.from + '</span>', 'Held for ' + dur(held1) + '. Unchanged at every check.') +
+  step(fmt(m.at) + ' UTC', 'var(--blue)', 'Moved forward to <span class="mono" style="color:var(--blue)">' + m.to + '</span>', 'A new commit building on the old one, on the same release line. What a floating tag is for.', '<a href="#/e/' + m.entry + '" style="margin-top:8px;display:inline-block;font-weight:600">Read entry ' + m.entry + '</a>') +
+  step('Now', 'var(--blue)', 'Still pointing at <span class="mono">' + m.to + '</span>', 'Held for ' + dur(held2) + ' so far.') +
+  '</ol></div>';
+}
+
+function pageEntry() {
+  return '<div class="wrap" style="padding-top:56px">' +
+  '<div class="row" style="justify-content:space-between"><a href="#/e/57" class="btn b-line small">Entry 56</a><span class="lbl">The ledger, entry 57 of 64</span><a href="#/e/57" class="btn b-line small">Entry 58</a></div>' +
+  '<div class="grid12" style="margin-top:32px;gap:0;border:1px solid var(--rule);border-radius:24px;overflow:hidden">' +
+  '<section class="span6" style="padding:36px;background:var(--card)"><div class="lbl">Entry</div><h1 class="mono" tabindex="-1" style="margin:4px 0 0;font-size:96px;line-height:.9;font-weight:700;letter-spacing:-.04em">57</h1>' +
+  '<p style="margin:22px 0 0;font-size:21px;font-weight:700;line-height:1.35"><a href="#/a/reviewdog/action-actionlint/v1">reviewdog/action-actionlint v1</a> moved forward to a new release.</p>' +
+  '<dl class="ins" style="margin:26px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px;font-size:15px">' +
+  [['Event', 'Move'], ['Severity', 'Low'], ['Tag form', 'Floating major'], ['Direction', 'Ahead of the old commit'], ['From', '1129829f'], ['To', '13465d02'], ['First seen', '2 Oct, 05:28 UTC'], ['Chained to', 'Entry 56']].map(function (x) { return '<div><dt class="lbl">' + x[0] + '</dt><dd style="margin:4px 0 0' + (x[0] === 'To' ? ';color:var(--blue)' : '') + '"' + (x[0] === 'From' || x[0] === 'To' ? ' class="mono"' : '') + '>' + x[1] + '</dd></div>'; }).join('') + '</dl></section>' +
+  '<section class="span6 night" style="border-radius:0;padding:36px" aria-label="Canonical bytes"><div class="lbl">Canonical JSON, abridged</div><pre class="mono" style="margin:14px 0 0;font-size:12.5px;line-height:1.75;white-space:pre-wrap;color:var(--nmuted)">{"classification":"content_change",\n "event":"move",\n "format_version":1,\n "from":{"commit_sha":"1129829f..."},\n "ref":"refs/tags/v1",\n "ref_form":"floating_major",\n "repo":"reviewdog/action-actionlint",\n "seq":57,\n "severity":"low",\n "to":{"commit_sha":"13465d02..."}}</pre>' +
+  '<p class="ins" style="margin:20px 0 0;padding-top:16px;border-top:1px solid var(--night3);font-size:13px;color:var(--nmuted)">The SHA-256 of these bytes is this entry\'s hash. Entry 58 begins with it. Change one byte, and 58 breaks.</p></section></div></div>';
+}
+
+var INCIDENTS = [
+  ['1 Oct', 'Entry 52 called a tag type change a content change', 'The canary switched v2 from lightweight to annotated on the same commit. A stale tree value made the classifier sign it as a content change.', 'Being corrected with an appended entry. The classifier now refuses that combination.'],
+  ['1 Oct', 'A published head line was rewritten', 'A full file publish replaced one line of heads.jsonl. The signed head was identical. The witness details were not.', 'Disclosed in a digest note. Publishing is now prefix checked.'],
+  ['1 Oct', 'Poller outage, about an hour', 'Every run failed from 00:02 UTC after a budget bug, so the seal for 30 September ran late.', 'Recorded as gaps. The seven day test window restarted.'],
+  ['30 Sep', 'Moves were seen but not written down', 'Until the fix, the runner stored observations but appended no move entries. Replaying the archive found zero ecosystem moves in that window.', 'Named gap note in the next digest.'],
+  ['29 Sep', '32 observations carried invented tree values', 'A listing bug filled in tree hashes it had never fetched.', 'Disclosed in a digest note. The observations are left as they were.'],
+  ['29 Sep', 'Placeholder commits in early observations', 'Some first day observations stored placeholder values that are not git objects.', 'Disclosed in a digest note.'],
+  ['29 Sep', 'A false HTTP 422 was recorded', 'A budget bug recorded a status GitHub never sent, for tj-actions/changed-files.', 'Disclosed in the first digest. Fixed in e30f6c7.']
+];
+function pageIncidents() {
+  return '<div class="wrap" style="padding-top:72px"><h1 class="h1" tabindex="-1">What went wrong,<br>on the record.</h1><p class="lede" style="margin-top:22px;max-width:660px">Every mistake we have made, how we found it, and where we disclosed it. We add to this list. We never remove from it. Most were caught by our own canary.</p>' +
+  '<ol style="margin:52px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">' + INCIDENTS.map(function (x) { return '<li class="paper grid12" style="gap:18px;padding:22px 24px;align-items:start"><span class="ins" style="grid-column:span 2;font-size:14px;color:var(--ink2)">' + x[0] + '</span><span style="grid-column:span 3;font-weight:800;line-height:1.35">' + x[1] + '</span><span style="grid-column:span 4;color:var(--ink2)">' + x[2] + '</span><span class="ins" style="grid-column:span 3;font-size:13.5px;color:var(--ink3)">' + x[3] + '</span></li>'; }).join('') + '</ol></div>';
+}
+function page404() {
+  return '<div class="wrap narrow" style="padding-top:96px"><div class="mono" style="font-size:clamp(110px,18vw,240px);line-height:.8;font-weight:700;letter-spacing:-.06em">404</div><h1 class="h2" tabindex="-1" style="margin-top:32px">No page here.</h1><p class="lede" style="margin-top:16px">Unlike a moved tag, this is something we can say for certain.</p><div class="row" style="margin-top:30px"><a href="#/" class="btn b-blue">Check a repository</a><a href="#/moved" class="btn b-line">See what moved</a></div></div>';
+}
+
+/* router */
+function route() {
+  var h = location.hash.replace(/^#\/?/, '');
+  var qi = h.indexOf('?'); var q = {};
+  if (qi !== -1) { h.slice(qi + 1).split('&').forEach(function (p) { var kv = p.split('='); q[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || ''); }); h = h.slice(0, qi); }
+  var parts = h.split('/').filter(Boolean);
+  if (!parts.length) return { name: 'home', q: q };
+  if (parts[0] === 'check') return { name: 'check', q: q };
+  if (parts[0] === 'paste') return { name: 'paste', q: q };
+  if (parts[0] === 'moved') return { name: 'moved', q: q };
+  if (parts[0] === 'how') return { name: 'how', q: q };
+  if (parts[0] === 'verify') return { name: 'verify', q: q };
+  if (parts[0] === 'incidents') return { name: 'incidents', q: q };
+  if (parts[0] === 'e') return { name: 'entry', q: q };
+  if (parts[0] === 'a' && parts.length === 3) return { name: 'action', key: parts[1] + '/' + parts[2], q: q };
+  if (parts[0] === 'a' && parts.length === 4) return { name: 'tag', key: parts[1] + '/' + parts[2], tag: parts[3], q: q };
+  return { name: '404', q: q };
+}
+var lastName = null;
+function render() {
+  var r = route();
+  var navKey = { home: 'home', check: 'home', paste: 'home', moved: 'moved', how: 'how', verify: 'verify' }[r.name];
+  document.querySelectorAll('[data-nav]').forEach(function (a) { if (a.getAttribute('data-nav') === navKey) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  var html;
+  switch (r.name) {
+    case 'home': html = pageHome(); break;
+    case 'check': html = pageCheck(); break;
+    case 'paste': html = pagePaste(); break;
+    case 'moved': html = pageMoved(r.q); break;
+    case 'how': html = pageHow(); break;
+    case 'verify': html = pageVerify(); break;
+    case 'incidents': html = pageIncidents(); break;
+    case 'entry': html = pageEntry(); break;
+    case 'action': html = pageAction(r.key); break;
+    case 'tag': html = pageTag(r.key, r.tag); break;
+    default: html = page404();
+  }
+  app.innerHTML = html;
+  var titles = { home: 'Refledger: is your workflow running the code you think it is?', check: 'Your results, Refledger', paste: 'Paste a workflow, Refledger', moved: 'What moved, Refledger', how: 'How it works, Refledger', verify: 'Verify the ledger, Refledger', incidents: 'Incidents, Refledger', entry: 'Entry 57, Refledger', action: (r.key || '') + ', Refledger', tag: (r.key || '') + ' ' + (r.tag || '') + ', Refledger' };
+  document.title = titles[r.name] || 'Not found, Refledger';
+  if (r.name === 'how') { baseline = null; drawToy(); drawWall(); rehash(); }
+  if (r.name !== lastName) { window.scrollTo(0, 0); var h1 = app.querySelector('h1'); if (h1) h1.focus({ preventScroll: true }); }
+  lastName = r.name;
+}
+window.addEventListener('hashchange', function () { var next = route().name; if ((lastName === 'how' || lastName === 'verify') && next !== lastName) { clearTimers(); scrub.playing = null; } render(); });
+
+/* events */
+document.addEventListener('submit', function (e) {
+  var f = e.target.getAttribute('data-form'); if (!f) return;
+  e.preventDefault();
+  if (f === 'check') { var v = e.target.querySelector('input').value; if (v.trim()) runCheck({ repo: v }); }
+  if (f === 'paste') { runCheck({ files: [{ name: 'pasted.yml', text: e.target.querySelector('textarea').value }] }); }
+});
+document.addEventListener('input', function (e) {
+  if (e.target.id === 'scrub') { if (scrub.playing) { clearInterval(scrub.playing); scrub.playing = null; } scrub.t = Number(e.target.value); drawWall(); }
+  if (e.target.closest && e.target.closest('[data-sec]') && e.target.isContentEditable) rehash();
+});
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-act]'); if (!b) return;
+  var a = b.getAttribute('data-act');
+  if (a === 'paste') { location.hash = '#/paste'; }
+  if (a === 'example') { runCheck({ example: true }); }
+  if (a === 'rss') { e.preventDefault(); toast('The RSS feed goes live with the site.'); }
+  if (a === 'copyfixed' && checkState && checkState.files) {
+    var files = fixedFiles(checkState.files, checkState.results).filter(function (f) { return f.changed; });
+    copyText(files.map(function (f) { return '# ' + f.name + '\n' + f.text; }).join('\n\n'), 'Copied. Paste over your workflow files.');
+  }
+  if (a === 'copycli') { copyText(document.getElementById('cli').textContent, 'Command copied'); }
+  if (a === 'copypin') { copyText(b.getAttribute('data-text'), 'Pinned line copied'); }
+  if (a === 'moment') {
+    document.querySelectorAll('[data-act="moment"]').forEach(function (x) { x.classList.remove('b-ink'); x.classList.add('b-line'); x.setAttribute('aria-pressed', 'false'); });
+    b.classList.add('b-ink'); b.classList.remove('b-line'); b.setAttribute('aria-pressed', 'true');
+    var sha = b.getAttribute('data-sha'); var el = document.getElementById('mo-sha'); el.textContent = sha; el.style.color = sha === '13465d02' ? 'var(--blue)' : 'var(--ink)';
+    document.getElementById('mo-note').textContent = b.getAttribute('data-note');
+  }
+  if (a === 'toymove') { toy.moved = true; toy.erased = false; drawToy(); }
+  if (a === 'toyerase') { toy.erased = true; drawToy(); }
+  if (a === 'toyreset') { toy.moved = false; toy.erased = false; drawToy(); }
+  if (a === 'play') {
+    if (scrub.playing) { clearInterval(scrub.playing); scrub.playing = null; drawWall(); return; }
+    if (scrub.t >= 100) scrub.t = 0;
+    scrub.playing = setInterval(function () { scrub.t = Math.min(100, scrub.t + 0.55); if (scrub.t >= 100) { clearInterval(scrub.playing); scrub.playing = null; } drawWall(); }, 50);
+    timers.push(scrub.playing); drawWall();
+  }
+  if (a === 'tamper') {
+    var t = document.querySelector('[data-sec="3"] h2[data-text]');
+    if (t.dataset.orig) { t.textContent = t.dataset.orig; delete t.dataset.orig; }
+    else { t.dataset.orig = t.textContent; t.textContent = 'Every move is signed and chained, mostly.'; }
+    rehash();
+  }
+  if (a === 'editpage') {
+    var on = b.getAttribute('aria-pressed') !== 'true';
+    document.querySelectorAll('[data-sec] [data-text]').forEach(function (n) { n.setAttribute('contenteditable', on ? 'true' : 'false'); });
+    b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'Stop editing' : 'Edit the page yourself';
+    if (on) toast('Click any text above and change it.');
+  }
+  if (a === 'verify') {
+    var cells = document.querySelectorAll('#vchain span'); var n = 0; var res = document.getElementById('vresult'); res.innerHTML = '';
+    cells.forEach(function (c) { c.className = ''; });
+    b.disabled = true;
+    var iv = setInterval(function () {
+      if (n < cells.length) { cells[n].className = (n === 39 || n === 42 || n === 63) ? 'seal' : 'on'; n++; document.getElementById('vstatus').textContent = 'Checking entry ' + n + ' of 64'; return; }
+      clearInterval(iv); b.disabled = false; b.textContent = 'Verify again';
+      document.getElementById('vstatus').textContent = 'Every hash matches. Every signature checks.';
+      res.innerHTML = '<div class="rise mono" style="margin-top:26px;padding:20px 22px;border-radius:14px;background:var(--night2);font-size:14.5px;line-height:1.9">chain: OK<br>entries: 64 (seq 0 .. 63)<br>span: 2026-09-29 .. 2026-10-02<br>head: signed, valid, key b3e7...<br>coverage gaps recorded: 251 skipped, 1 failed polls</div>';
+    }, 40);
+    timers.push(iv);
+  }
+});
+
+render();
+})();
+</script>
+</body>
+</html>

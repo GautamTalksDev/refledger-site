@@ -1,8 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { canonicalJson } from '../../lib/canonical';
-import { getSiteData, effectiveDisplayClassification } from '../../data';
+import { getSiteData, effectiveDisplayClassification, shortSha } from '../../data';
 import { whatChangedFromEntry } from '../../lib/what-changed';
+import { fmtLedgerAsOf, fmtUtc, titleCaseSeverity } from '../../lib/format';
 
 export function getStaticPaths() {
   const data = getSiteData();
@@ -15,133 +16,190 @@ export function getStaticPaths() {
 const { seq } = Astro.props;
 const data = getSiteData();
 const entry = data.entriesBySeq.get(seq)!;
-const { entry_hash, ...withoutHash } = entry as typeof entry & { entry_hash: string };
+const { entry_hash, ...withoutHash } = entry as typeof entry & {
+  entry_hash: string;
+};
 const rawCanonical = canonicalJson(withoutHash);
 const correction = data.correctionsBySeq.get(seq) ?? null;
 const display = whatChangedFromEntry(entry, correction);
 const classification = effectiveDisplayClassification(entry, correction);
 const prev = seq > 0 ? seq - 1 : null;
 const next = seq + 1 < data.chainLength ? seq + 1 : null;
+const tipSeq = Math.max(0, data.chainLength - 1);
 
 function sanitizeCopy(s: string): string {
-  return s.replace(/\u2014/g, ',').replace(/\u2013/g, '-').replace(/--/g, ', ');
+  return s
+    .replace(/\u2014/g, ',')
+    .replace(/\u2013/g, '-')
+    .replace(/--/g, ', ');
 }
+
+const isMove =
+  entry.event === 'move' ||
+  entry.event === 'deletion' ||
+  entry.event === 'recreation';
+
+const repo =
+  'repo' in entry && typeof entry.repo === 'string' ? entry.repo : null;
+const ref =
+  'ref' in entry && typeof entry.ref === 'string' ? entry.ref : null;
+const tag = ref ? ref.replace(/^refs\/tags\//, '') : null;
+
+const facts: [string, string, boolean?][] = [
+  ['Event', entry.event],
+];
+if ('severity' in entry && entry.severity) {
+  facts.push(['Severity', titleCaseSeverity(String(entry.severity))]);
+}
+if (classification) {
+  facts.push(['Classification', classification.replace(/_/g, ' ')]);
+}
+if ('ref_form' in entry && entry.ref_form) {
+  facts.push(['Tag form', String(entry.ref_form).replace(/_/g, ' ')]);
+}
+if ('ancestry' in entry && entry.ancestry) {
+  facts.push(['Direction', String(entry.ancestry).replace(/_/g, ' ')]);
+}
+if (isMove && entry.from) {
+  facts.push([
+    'From',
+    shortSha(entry.from.commit_sha ?? entry.from.target_sha),
+    true,
+  ]);
+}
+if (isMove && entry.event !== 'deletion' && 'to' in entry && entry.to) {
+  facts.push([
+    'To',
+    shortSha(entry.to.commit_sha ?? entry.to.target_sha),
+    true,
+  ]);
+}
+facts.push(['First seen', `${fmtUtc(entry.recorded_at)} UTC`]);
+if (prev !== null) facts.push(['Chained to', `Entry ${prev}`]);
+
+const headline =
+  repo && tag
+    ? `${repo} ${tag}`
+    : entry.event;
 ---
 
 <BaseLayout
-  title={`Entry seq ${seq} · Refledger`}
+  title={`Entry ${seq} · Refledger`}
   description={`Ledger entry ${seq} (${entry.event}) recorded at ${entry.recorded_at}.`}
   canonicalPath={`/e/${seq}`}
+  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  latestSeq={tipSeq}
 >
-  <p class="muted">
-    <a href="/">Home</a> / entry <span class="mono">{seq}</span>
-  </p>
-  <h1>Entry seq {seq}</h1>
-  <p class="lede">{entry.event} · {entry.recorded_at}</p>
+  <div class="wrap" style="padding-top:56px">
+    <div class="row" style="justify-content:space-between">
+      {
+        prev !== null ? (
+          <a href={`/e/${prev}`} class="btn b-line small">
+            Entry {prev}
+          </a>
+        ) : (
+          <span class="btn b-line small" style="opacity:.4;pointer-events:none"
+            >Entry</span
+          >
+        )
+      }
+      <span class="lbl"
+        >The ledger, entry {seq} of {data.chainLength}</span
+      >
+      {
+        next !== null ? (
+          <a href={`/e/${next}`} class="btn b-line small">
+            Entry {next}
+          </a>
+        ) : (
+          <span class="btn b-line small" style="opacity:.4;pointer-events:none"
+            >Entry</span
+          >
+        )
+      }
+    </div>
 
-  {
-    correction && (
-      <aside class="correction-note" role="note">
-        <p>
-          This entry has a signed correction at{' '}
-          <a href={`/e/${correction.seq}`}>seq {correction.seq}</a>. Display uses the corrected
-          facts; the original row stays in the chain for verification.
+    <div
+      class="grid12"
+      style="margin-top:32px;gap:0;border:1px solid var(--rule);border-radius:24px;overflow:hidden"
+    >
+      <section class="span6" style="padding:36px;background:var(--card)">
+        <div class="lbl">Entry</div>
+        <h1
+          class="mono"
+          tabindex="-1"
+          style="margin:4px 0 0;font-size:96px;line-height:.9;font-weight:700;letter-spacing:-.04em"
+        >
+          {seq}
+        </h1>
+        <p style="margin:22px 0 0;font-size:21px;font-weight:700;line-height:1.35">
+          {
+            repo && tag ? (
+              <a href={`/a/${repo}/${tag}`}>
+                {headline}
+              </a>
+            ) : (
+              headline
+            )
+          }
+          {isMove ? ` ${display.phrase.toLowerCase()}.` : '.'}
         </p>
-        <p class="muted">{sanitizeCopy(correction.reason)}</p>
-      </aside>
-    )
-  }
-
-  {
-    (entry.event === 'move' ||
-      entry.event === 'deletion' ||
-      entry.event === 'recreation') && (
-      <p>
-        <strong>What changed:</strong> {display.phrase}
         {
-          display.fromTo.text && (
-            <>
-              {' '}
-              (<span class="mono">{display.fromTo.text}</span>)
-            </>
+          correction && (
+            <aside
+              class="ins"
+              role="note"
+              style="margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--blue-soft);color:var(--ink2);font-size:14px"
+            >
+              Corrected by{' '}
+              <a href={`/e/${correction.seq}`}>entry {correction.seq}</a>.{' '}
+              {sanitizeCopy(correction.reason)}
+            </aside>
           )
         }
-      </p>
-    )
-  }
-
-  <p class="row">
-    {
-      prev !== null ? (
-        <a href={`/e/${prev}`}>Previous (seq {prev})</a>
-      ) : (
-        <span class="muted">No previous</span>
-      )
-    }
-    {
-      next !== null ? (
-        <a href={`/e/${next}`}>Next (seq {next})</a>
-      ) : (
-        <span class="muted">No next</span>
-      )
-    }
-  </p>
-
-  <section class="section">
-    <h2>Fields</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <tbody>
+        <dl
+          class="ins"
+          style="margin:26px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 22px;font-size:15px"
+        >
           {
-            Object.entries(entry).map(([k, v]) => {
-              if (k === 'classification' && entry.event === 'deletion') return null;
-              return (
-                <tr>
-                  <th scope="row">{k}</th>
-                  <td>
-                    <code class="mono"
-                      >{typeof v === 'string'
-                        ? sanitizeCopy(v)
-                        : sanitizeCopy(JSON.stringify(v))}</code
-                    >
-                  </td>
-                </tr>
-              );
-            })
+            facts.map(([label, value, mono]) => (
+              <div>
+                <dt class="lbl">{label}</dt>
+                <dd
+                  style={`margin:4px 0 0${label === 'To' ? ';color:var(--blue)' : ''}`}
+                  class={mono ? 'mono' : undefined}
+                >
+                  {value}
+                </dd>
+              </div>
+            ))
           }
-        </tbody>
-      </table>
-    </div>
-    {
-      entry.event === 'deletion' && (
-        <p class="muted">
-          Classification is omitted for deletions (see correction at seq 41 about seq 40).
+        </dl>
+      </section>
+      <section
+        class="span6 night"
+        style="border-radius:0;padding:36px"
+        aria-label="Canonical bytes"
+      >
+        <div class="lbl">Canonical JSON, abridged</div>
+        <pre
+          class="mono"
+          style="margin:14px 0 0;font-size:12.5px;line-height:1.75;white-space:pre-wrap;color:var(--nmuted);max-height:420px;overflow:auto"
+          ><code
+            >{rawCanonical.length > 1200
+              ? rawCanonical.slice(0, 1200) + '…'
+              : rawCanonical}</code
+          ></pre
+        >
+        <p
+          class="ins"
+          style="margin:20px 0 0;padding-top:16px;border-top:1px solid var(--night3);font-size:13px;color:var(--nmuted)"
+        >
+          The SHA-256 of these bytes is this entry's hash ({shortSha(entry_hash.replace(/^sha256:/, ''), 8)}
+          ). The next entry begins with it. Change one byte, and the chain
+          breaks.
         </p>
-      )
-    }
-    {
-      classification && (
-        <p class="muted">
-          Displayed classification: {classification}
-          {
-            correction &&
-              'classification' in entry &&
-              entry.classification !== classification && (
-                <> (signed row had {(entry as { classification: string }).classification})</>
-              )
-          }
-        </p>
-      )
-    }
-  </section>
-
-  <section class="section">
-    <h2>Canonical JSON (without entry_hash)</h2>
-    <div class="pre-block">
-      <pre><code>{rawCanonical}</code></pre>
+      </section>
     </div>
-    <p>
-      Entry hash: <span class="mono">{entry_hash}</span>
-    </p>
-  </section>
+  </div>
 </BaseLayout>
