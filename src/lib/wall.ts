@@ -1,8 +1,6 @@
-import type {
-  RepoView,
-  Seal,
-  TraceEvent,
-} from '../data/types';
+import type { GapBand } from '../data/gaps';
+import type { CorrelationCaption, TraceEvent } from '../data/index';
+import type { RepoView, Seal } from '../data/types';
 
 export type WallRange = 'genesis' | '7d' | '30d';
 
@@ -14,9 +12,9 @@ export type WallModel = {
   canary: RepoView | null;
   events: TraceEvent[];
   seals: Seal[];
-  gaps: { start: string; end: string; label: string }[];
+  gaps: GapBand[];
   hiddenUnchanged: number;
-  correlations: { at: string; repos: string[]; caption: string; seqs: number[] }[];
+  correlations: CorrelationCaption[];
 };
 
 function rangeStart(range: WallRange, genesisAt: string, buildTime: string): string {
@@ -47,6 +45,25 @@ function esc(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
+
 export function buildWallModel(opts: {
   range: WallRange;
   buildTime: string;
@@ -56,8 +73,8 @@ export function buildWallModel(opts: {
   canary: RepoView | null;
   events: TraceEvent[];
   seals: Seal[];
-  gaps?: WallModel['gaps'];
-  correlations?: WallModel['correlations'];
+  gaps: GapBand[];
+  correlations: CorrelationCaption[];
 }): WallModel {
   const start = rangeStart(opts.range, opts.genesisAt, opts.buildTime);
   const repos = opts.wallRepos
@@ -84,35 +101,43 @@ export function buildWallModel(opts: {
         `${s.digest.observation_digest.date}T00:00:00.000Z`;
       return headAt >= start;
     }),
-    gaps: opts.gaps ?? [],
+    gaps: opts.gaps.filter((g) => {
+      if (g.end < start) return false;
+      const dur = new Date(g.end).getTime() - new Date(g.start).getTime();
+      // Instantaneous lag markers clutter the wall; keep lasting gaps and failures.
+      return dur >= 60_000 || g.kind === 'silence' || g.kind === 'PollerDown' || g.kind === 'failed';
+    }),
     hiddenUnchanged,
-    correlations: (opts.correlations ?? []).filter((c) => c.at >= start),
+    correlations: opts.correlations.filter((c) => c.at >= start),
   };
 }
 
+type Row = {
+  key: string;
+  label: string;
+  repo: string;
+  isCanaryTag?: boolean;
+  mono?: boolean;
+};
+
 export function renderWallSvg(model: WallModel): string {
-  const labelW = 168;
-  const padL = labelW + 16;
-  const padR = 24;
-  const padT = 36;
-  const rowH = 28;
-  const axisH = 28;
-  const plotW = 720;
+  const padL = 300;
+  const padR = 20;
+  const plotW = 880;
+  const width = padL + plotW + padR;
   const startMs = new Date(
     rangeStart(model.range, model.genesisAt, model.buildTime),
   ).getTime();
   const endMs = new Date(model.buildTime).getTime();
+  const nowX = padL + plotW;
 
-  const rows: { key: string; label: string; repo: string; isCanaryTag?: boolean }[] =
-    model.repos.map((r) => ({
-      key: r.repo,
-      label: r.repo,
-      repo: r.repo,
-    }));
+  const rows: Row[] = model.repos.map((r) => ({
+    key: r.repo,
+    label: r.repo,
+    repo: r.repo,
+  }));
 
-  let canaryOffset = 0;
   if (model.canary) {
-    canaryOffset = 20;
     for (const t of model.canary.tags) {
       const tag = t.ref.startsWith('refs/tags/')
         ? t.ref.slice('refs/tags/'.length)
@@ -122,178 +147,337 @@ export function renderWallSvg(model: WallModel): string {
         label: tag,
         repo: model.canary.repo,
         isCanaryTag: true,
+        mono: true,
       });
     }
   }
 
-  const plotH = rows.length * rowH + (model.canary ? canaryOffset : 0);
-  const height = padT + plotH + axisH + 8;
-  const width = padL + plotW + padR;
+  const ecoCount = model.repos.length;
+  const canaryCount = model.canary?.tags.length ?? 0;
+  const rowH = 22;
+  const padT = 44;
+  const ecoBottom = padT + ecoCount * rowH;
+  const canaryHeader = 48;
+  const plotBottom =
+    ecoBottom +
+    (canaryCount ? canaryHeader + canaryCount * rowH + 28 : 12);
+  const height = plotBottom + 40;
 
   const parts: string[] = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(wallAriaLabel(model))}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="display:block;width:100%;min-width:860px;height:auto" role="group" aria-label="${esc(wallAriaLabel(model))}">`,
   );
-  parts.push(
-    `<rect width="100%" height="100%" fill="var(--surface, #F7F9F8)"/>`,
-  );
-
-  // Gap bands
-  for (const g of model.gaps) {
-    const x1 = xFor(g.start, startMs, endMs, padL, plotW);
-    const x2 = xFor(g.end, startMs, endMs, padL, plotW);
-    parts.push(
-      `<rect class="wall-gap" x="${x1.toFixed(1)}" y="${padT}" width="${Math.max(2, x2 - x1).toFixed(1)}" height="${plotH}" fill="url(#gapHatch)" opacity="0.45"/>`,
-    );
-  }
-
   parts.push(`<defs>
     <pattern id="gapHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="6" stroke="var(--trace, #97A2A0)" stroke-width="1"/>
+      <rect width="6" height="6" fill="var(--surface, #F7F9F8)"/>
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#C9D1CD" stroke-width="2"/>
     </pattern>
     <style>
-      .wall-line { fill: none; stroke: var(--ink, #262B30); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-      .wall-jog { stroke: var(--accent, #2347C8); }
-      .wall-label { font-family: B612, sans-serif; font-size: 11px; fill: var(--text-secondary, #5E6A69); }
-      .wall-axis { font-family: B612, sans-serif; font-size: 11px; fill: var(--text-secondary, #5E6A69); }
-      .wall-draw { stroke-dasharray: 1400; stroke-dashoffset: 1400; animation: wallDraw 1.4s ease forwards; }
+      .wl { stroke: var(--ink, #262B30); stroke-width: 1.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wj { stroke: var(--accent, #2347C8); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .wlab { font-family: B612, sans-serif; font-size: 11.5px; fill: var(--ink, #262B30); }
+      .wlab-muted { fill: var(--text-secondary, #5E6A69); }
+      .wmono { font-family: 'B612 Mono', ui-monospace, monospace; font-size: 11px; fill: var(--ink, #262B30); }
+      .waxis { font-family: B612, sans-serif; font-size: 11.5px; fill: var(--text-secondary, #5E6A69); }
+      .wall-draw { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: wallDraw 1.4s ease forwards; }
       @media (prefers-reduced-motion: reduce) {
         .wall-draw { animation: none; stroke-dashoffset: 0; }
       }
       @keyframes wallDraw { to { stroke-dashoffset: 0; } }
+      .jog-hit:focus { outline: 2px solid var(--ink, #262B30); outline-offset: 2px; }
     </style>
   </defs>`);
 
-  // Day grid + seals on axis
+  // Axis labels and day lines
+  parts.push(
+    `<g class="waxis"><text x="${padL}" y="26">${esc(dayLabel(model.genesisAt))} genesis</text>`,
+  );
   const dayMs = 24 * 3600 * 1000;
+  const dayMarks: number[] = [];
   for (let t = Math.ceil(startMs / dayMs) * dayMs; t <= endMs; t += dayMs) {
+    dayMarks.push(t);
     const x = xFor(new Date(t).toISOString(), startMs, endMs, padL, plotW);
     parts.push(
-      `<line x1="${x.toFixed(1)}" y1="${padT}" x2="${x.toFixed(1)}" y2="${padT + plotH}" stroke="var(--rule, #E1E6E3)" stroke-width="1"/>`,
-    );
-  }
-
-  let yBase = padT + rowH / 2;
-  if (model.canary) {
-    // Canary section label inserted before canary rows
-  }
-
-  let rowIndex = 0;
-  let canaryLabelDrawn = false;
-  for (const row of rows) {
-    if (row.isCanaryTag && !canaryLabelDrawn) {
-      parts.push(
-        `<text class="wall-label" x="8" y="${(yBase - 10).toFixed(1)}" font-weight="700">Canary</text>`,
-      );
-      canaryLabelDrawn = true;
-      yBase += 8;
-    }
-    const y = yBase;
-    parts.push(
-      `<text class="wall-label" x="8" y="${(y + 4).toFixed(1)}">${esc(row.label)}</text>`,
-    );
-
-    const rowEvents = model.events
-      .filter((e) => {
-        if (row.isCanaryTag) {
-          return e.repo === row.repo && e.tag === row.label;
-        }
-        return e.repo === row.repo && !e.isCanary;
-      })
-      .sort((a, b) => (a.recorded_at < b.recorded_at ? -1 : 1));
-
-    // Build path: straight, with vertical jogs at moves; hollow circle at deletion; resume at recreation
-    let xCursor = padL;
-    const path: string[] = [`M ${xCursor.toFixed(1)} ${y.toFixed(1)}`];
-    let ended = false;
-
-    for (const ev of rowEvents) {
-      const x = xFor(ev.recorded_at, startMs, endMs, padL, plotW);
-      if (ended && ev.event !== 'recreation') continue;
-      if (ev.event === 'deletion') {
-        path.push(`L ${x.toFixed(1)} ${y.toFixed(1)}`);
-        parts.push(
-          `<a href="/e/${ev.seq}" aria-label="seq ${ev.seq}: ${esc(ev.repo)} ${esc(ev.tag)} deleted"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="none" stroke="var(--ink, #262B30)" stroke-width="1.5"/></a>`,
-        );
-        ended = true;
-        xCursor = x;
-        continue;
-      }
-      if (ev.event === 'recreation') {
-        ended = false;
-        path.push(`M ${x.toFixed(1)} ${y.toFixed(1)}`);
-        parts.push(
-          `<a href="/e/${ev.seq}" aria-label="seq ${ev.seq}: ${esc(ev.repo)} ${esc(ev.tag)} recreated"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="var(--accent, #2347C8)"/></a>`,
-        );
-        xCursor = x;
-        continue;
-      }
-      // move: horizontal to jog, vertical jog, continue
-      const jog = 7;
-      path.push(`L ${x.toFixed(1)} ${y.toFixed(1)}`);
-      path.push(`L ${x.toFixed(1)} ${(y - jog).toFixed(1)}`);
-      path.push(`L ${(x + 0.01).toFixed(1)} ${(y - jog).toFixed(1)}`);
-      path.push(`L ${(x + 0.01).toFixed(1)} ${y.toFixed(1)}`);
-      parts.push(
-        `<a href="/e/${ev.seq}" aria-label="seq ${ev.seq}: ${esc(ev.repo)} ${esc(ev.tag)} moved"><rect x="${(x - 3).toFixed(1)}" y="${(y - jog - 3).toFixed(1)}" width="8" height="${jog + 6}" fill="transparent"></rect></a>`,
-      );
-      xCursor = x;
-    }
-
-    if (!ended) {
-      path.push(
-        `L ${xFor(model.buildTime, startMs, endMs, padL, plotW).toFixed(1)} ${y.toFixed(1)}`,
-      );
-    }
-
-    const hasJog = rowEvents.some((e) => e.event === 'move');
-    parts.push(
-      `<path class="wall-line wall-draw${hasJog ? ' wall-jog' : ''}" d="${path.join(' ')}" />`,
-    );
-
-    yBase += rowH;
-    rowIndex++;
-  }
-
-  // Correlation captions
-  for (const c of model.correlations) {
-    const x = xFor(c.at, startMs, endMs, padL, plotW);
-    parts.push(
-      `<rect x="${(x - 6).toFixed(1)}" y="${padT}" width="12" height="${plotH}" fill="var(--accent, #2347C8)" opacity="0.08"/>`,
+      `<text x="${x.toFixed(1)}" y="26" text-anchor="middle">${esc(dayLabel(new Date(t).toISOString()))}</text>`,
     );
     parts.push(
-      `<text class="wall-axis" x="${x.toFixed(1)}" y="${(padT - 8).toFixed(1)}" text-anchor="middle">${esc(c.caption)}</text>`,
+      `<line x1="${x.toFixed(1)}" y1="38" x2="${x.toFixed(1)}" y2="${ecoBottom + (canaryCount ? canaryHeader + canaryCount * rowH : 0)}" stroke="var(--rule, #E1E6E3)"/>`,
     );
   }
-
-  // Axis
-  const axisY = padT + plotH + 18;
   parts.push(
-    `<line x1="${padL}" y1="${axisY}" x2="${padL + plotW}" y2="${axisY}" stroke="var(--trace, #97A2A0)" stroke-width="1"/>`,
+    `<text x="${nowX}" y="26" text-anchor="end" fill="var(--ink, #262B30)" font-weight="700">Now</text></g>`,
   );
   parts.push(
-    `<text class="wall-axis" x="${padL}" y="${axisY + 14}">genesis</text>`,
-  );
-  parts.push(
-    `<text class="wall-axis" x="${padL + plotW}" y="${axisY + 14}" text-anchor="end">Now</text>`,
+    `<line x1="${padL}" y1="38" x2="${nowX}" y2="38" stroke="var(--grid, #D3DAD6)"/>`,
   );
 
+  // Seal diamonds on axis, linked to digest entry
   for (const s of model.seals) {
     const at =
-      s.head?.head.recorded_at ?? `${s.digest.observation_digest.date}T00:00:00.000Z`;
+      s.head?.head.recorded_at ??
+      `${s.digest.observation_digest.date}T00:00:00.000Z`;
     const x = xFor(at, startMs, endMs, padL, plotW);
     parts.push(
-      `<polygon points="${x.toFixed(1)},${(axisY - 5).toFixed(1)} ${(x + 4).toFixed(1)},${axisY.toFixed(1)} ${x.toFixed(1)},${(axisY + 5).toFixed(1)} ${(x - 4).toFixed(1)},${axisY.toFixed(1)}" fill="var(--ink, #262B30)"><title>Sealed ${esc(s.digest.observation_digest.date)}</title></polygon>`,
+      `<a href="/e/${s.digest.seq}" aria-label="Sealed day ${esc(s.digest.observation_digest.date)}, digest seq ${s.digest.seq}">
+        <rect x="${(x - 4).toFixed(1)}" y="34" width="8" height="8" transform="rotate(45 ${x.toFixed(1)} 38)" fill="var(--ink, #262B30)">
+          <title>Sealed ${esc(s.digest.observation_digest.date)}</title>
+        </rect>
+      </a>`,
+    );
+  }
+
+  // Gap bands (per-repo height when scoped; full when all)
+  const lineTop = padT - 6;
+  const lineBottom = ecoBottom + (canaryCount ? canaryHeader + canaryCount * rowH : 0);
+
+  for (const g of model.gaps) {
+    const x1 = xFor(g.start, startMs, endMs, padL, plotW);
+    const x2 = xFor(g.end, startMs, endMs, padL, plotW);
+    const w = Math.max(2, x2 - x1);
+    const affectsAll =
+      g.repos.length === 0 ||
+      model.repos.every((r) => g.repos.includes(r.repo));
+    if (affectsAll) {
+      parts.push(
+        `<rect x="${x1.toFixed(1)}" y="${lineTop}" width="${w.toFixed(1)}" height="${lineBottom - lineTop}" fill="url(#gapHatch)"/>`,
+      );
+      parts.push(
+        `<text x="${(x1 + w / 2).toFixed(1)}" y="${lineTop + 14}" text-anchor="middle" class="waxis" font-size="10">${esc(g.label)}</text>`,
+      );
+    } else {
+      // Hatch only affected rows
+      let yi = 0;
+      for (const row of rows) {
+        const y = row.isCanaryTag
+          ? ecoBottom + canaryHeader + (yi - ecoCount) * rowH
+          : padT + yi * rowH;
+        if (!row.isCanaryTag) {
+          if (g.repos.includes(row.repo)) {
+            parts.push(
+              `<rect x="${x1.toFixed(1)}" y="${(y - 8).toFixed(1)}" width="${w.toFixed(1)}" height="16" fill="url(#gapHatch)"/>`,
+            );
+          }
+          yi++;
+        } else {
+          if (g.repos.includes(row.repo)) {
+            const cy =
+              ecoBottom +
+              canaryHeader +
+              rows.filter((r) => r.isCanaryTag).indexOf(row) * rowH;
+            parts.push(
+              `<rect x="${x1.toFixed(1)}" y="${(cy - 8).toFixed(1)}" width="${w.toFixed(1)}" height="16" fill="url(#gapHatch)"/>`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // Helper: gap intervals that break a given repo's line
+  function gapsForRepo(repo: string): { start: number; end: number }[] {
+    return model.gaps
+      .filter(
+        (g) =>
+          g.repos.length === 0 ||
+          g.repos.includes(repo) ||
+          model.repos.every((r) => g.repos.includes(r.repo)),
+      )
+      .map((g) => ({
+        start: xFor(g.start, startMs, endMs, padL, plotW),
+        end: xFor(g.end, startMs, endMs, padL, plotW),
+      }))
+      .sort((a, b) => a.start - b.start);
+  }
+
+  function drawBrokenLine(
+    y: number,
+    repo: string,
+    className: string,
+    fromX: number,
+    toX: number,
+  ): void {
+    const gaps = gapsForRepo(repo);
+    let cursor = fromX;
+    for (const g of gaps) {
+      if (g.end <= fromX || g.start >= toX) continue;
+      const segEnd = Math.min(g.start, toX);
+      if (segEnd > cursor) {
+        parts.push(
+          `<line class="${className} wall-draw" x1="${cursor.toFixed(1)}" y1="${y}" x2="${segEnd.toFixed(1)}" y2="${y}"/>`,
+        );
+      }
+      cursor = Math.max(cursor, g.end);
+    }
+    if (toX > cursor) {
+      parts.push(
+        `<line class="${className} wall-draw" x1="${cursor.toFixed(1)}" y1="${y}" x2="${toX.toFixed(1)}" y2="${y}"/>`,
+      );
+    }
+  }
+
+  // Ecosystem rows
+  for (let i = 0; i < model.repos.length; i++) {
+    const repo = model.repos[i];
+    const y = padT + i * rowH;
+    parts.push(
+      `<text class="wlab" x="${padL - 12}" y="${(y + 4).toFixed(1)}" text-anchor="end">${esc(repo.repo)}</text>`,
+    );
+    const rowEvents = model.events
+      .filter((e) => e.repo === repo.repo && !e.isCanary)
+      .sort((a, b) => (a.recorded_at < b.recorded_at ? -1 : 1));
+
+    drawEventfulLine(y, repo.repo, rowEvents, 'wl');
+  }
+
+  if (model.hiddenUnchanged > 0) {
+    parts.push(
+      `<a href="/actions" class="wlab wlab-muted" style="font-style:italic">
+        <text x="${padL}" y="${(ecoBottom + 18).toFixed(1)}">${model.hiddenUnchanged} more repositories, every one unchanged since genesis</text>
+      </a>`,
+    );
+  }
+
+  // Canary section
+  if (model.canary) {
+    const sepY = ecoBottom + 28;
+    parts.push(
+      `<line x1="${padL}" y1="${sepY}" x2="${nowX}" y2="${sepY}" stroke="var(--grid, #D3DAD6)" stroke-dasharray="2 4"/>`,
+    );
+    parts.push(
+      `<text class="wlab" font-weight="700" x="${padL - 12}" y="${(sepY + 24).toFixed(1)}" text-anchor="end">Canary, our test repo</text>`,
+    );
+    parts.push(
+      `<text class="wlab wlab-muted" x="${padL}" y="${(sepY + 24).toFixed(1)}">Tags here are moved on purpose, to prove the instrument works.</text>`,
+    );
+
+    const canaryTags = model.canary.tags;
+    for (let i = 0; i < canaryTags.length; i++) {
+      const t = canaryTags[i];
+      const tag = t.ref.startsWith('refs/tags/')
+        ? t.ref.slice(10)
+        : t.ref;
+      const y = sepY + 40 + i * rowH;
+      parts.push(
+        `<text class="wmono" x="${padL - 12}" y="${(y + 4).toFixed(1)}" text-anchor="end">${esc(tag)}</text>`,
+      );
+      const rowEvents = model.events
+        .filter((e) => e.repo === model.canary!.repo && e.tag === tag)
+        .sort((a, b) => (a.recorded_at < b.recorded_at ? -1 : 1));
+      drawEventfulLine(y, model.canary.repo, rowEvents, 'wl');
+    }
+  }
+
+  // Correlation highlight + caption
+  for (const c of model.correlations) {
+    const x = xFor(c.at, startMs, endMs, padL, plotW);
+    const canaryYs = model.canary
+      ? model.canary.tags
+          .map((t, i) => {
+            const tag = t.ref.startsWith('refs/tags/') ? t.ref.slice(10) : t.ref;
+            if (!c.tags.includes(tag)) return null;
+            const sepY = ecoBottom + 28;
+            return sepY + 40 + i * rowH;
+          })
+          .filter((v): v is number => v != null)
+      : [];
+    if (canaryYs.length) {
+      const top = Math.min(...canaryYs) - 6;
+      const bot = Math.max(...canaryYs) + 6;
+      parts.push(
+        `<rect x="${(x + 4).toFixed(1)}" y="${top}" width="10" height="${bot - top}" rx="5" fill="var(--accent, #2347C8)" fill-opacity="0.14"/>`,
+      );
+    }
+    parts.push(
+      `<path d="M${(x - 10).toFixed(1)} ${plotBottom + 8} H${(x + 5).toFixed(1)}" stroke="var(--accent, #2347C8)" stroke-width="1" fill="none"/>`,
+    );
+    parts.push(
+      `<path d="M${(x + 5).toFixed(1)} ${plotBottom + 8} V${plotBottom}" stroke="var(--accent, #2347C8)" stroke-width="1" fill="none"/>`,
+    );
+    parts.push(
+      `<a href="/e/${c.seq}"><text x="${(x - 16).toFixed(1)}" y="${plotBottom + 12}" text-anchor="end" class="wlab">${esc(c.caption)}</text></a>`,
     );
   }
 
   parts.push('</svg>');
   return parts.join('\n');
+
+  function drawEventfulLine(
+    y: number,
+    repo: string,
+    rowEvents: TraceEvent[],
+    baseClass: string,
+  ): void {
+    let cursor = padL;
+    let ended = false;
+
+    for (const ev of rowEvents) {
+      const x = xFor(ev.recorded_at, startMs, endMs, padL, plotW);
+      const tip = tooltipFor(ev);
+
+      if (ended && ev.event !== 'recreation') continue;
+
+      if (ev.event === 'deletion') {
+        drawBrokenLine(y, repo, baseClass, cursor, x);
+        parts.push(
+          `<a class="jog-hit" href="/e/${ev.seq}" aria-label="${esc(tip)}" tabindex="0">
+            <circle cx="${x.toFixed(1)}" cy="${y}" r="3.2" fill="var(--surface, #F7F9F8)" stroke="var(--ink, #262B30)" stroke-width="1.4">
+              <title>${esc(tip)}</title>
+            </circle>
+          </a>`,
+        );
+        ended = true;
+        cursor = x;
+        continue;
+      }
+
+      if (ev.event === 'recreation') {
+        ended = false;
+        parts.push(
+          `<a class="jog-hit" href="/e/${ev.seq}" aria-label="${esc(tip)}" tabindex="0">
+            <circle cx="${x.toFixed(1)}" cy="${y}" r="3.2" fill="var(--accent, #2347C8)">
+              <title>${esc(tip)}</title>
+            </circle>
+          </a>`,
+        );
+        cursor = x;
+        continue;
+      }
+
+      // move: line to jog, then accent jog path
+      drawBrokenLine(y, repo, baseClass, cursor, x);
+      const jog = 8;
+      parts.push(
+        `<path class="wj wall-draw" d="M ${x.toFixed(1)} ${y} V ${(y + jog).toFixed(1)} H ${(x + 10).toFixed(1)}"/>`,
+      );
+      parts.push(
+        `<a class="jog-hit" href="/e/${ev.seq}" aria-label="${esc(tip)}" tabindex="0">
+          <circle cx="${x.toFixed(1)}" cy="${y}" r="3.2" fill="var(--surface, #F7F9F8)" stroke="var(--ink, #262B30)" stroke-width="1.2">
+            <title>${esc(tip)}</title>
+          </circle>
+          <rect x="${(x - 4).toFixed(1)}" y="${(y - 4).toFixed(1)}" width="18" height="${jog + 10}" fill="transparent"/>
+        </a>`,
+      );
+      cursor = x + 10;
+    }
+
+    if (!ended) {
+      drawBrokenLine(y, repo, baseClass, cursor, nowX);
+    }
+  }
+}
+
+function tooltipFor(ev: TraceEvent): string {
+  const when = ev.recorded_at.replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+  const from = ev.fromCommit ? ev.fromCommit.slice(0, 7) : '?';
+  const to =
+    ev.event === 'deletion' ? 'gone' : ev.toCommit ? ev.toCommit.slice(0, 7) : '?';
+  const sev = ev.severity ? `; ${ev.severity}` : '';
+  return `${ev.tag}: ${from} to ${to}; ${when}${sev}`;
 }
 
 function wallAriaLabel(model: WallModel): string {
   const moves = model.events.filter((e) => e.event === 'move').length;
-  return `Trace wall for range ${model.range}: ${model.repos.length} repositories, ${moves} tag moves recorded.`;
+  return `Trace wall for range ${model.range}: ${model.repos.length} repositories, ${moves} tag moves recorded, ${model.gaps.length} gap bands.`;
 }
 
 export function wallTableRows(model: WallModel): {

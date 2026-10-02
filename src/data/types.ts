@@ -307,6 +307,8 @@ export type TagTip = {
   commit_sha?: string;
   tree_sha?: string;
   action_yml_sha?: string;
+  /** Commit SHA suitable for a workflow pin line, or null if unresolved. */
+  pin_commit: string | null;
   peeled: boolean;
   observed_at: string;
   observation_id: string;
@@ -338,6 +340,12 @@ export type RepoView = {
   active: boolean;
   tags: TagTimeline[];
   entries: LedgerEntry[];
+  /** Count of observations (any outcome) for this repo. */
+  checks_so_far: number;
+  /** Newest observation timestamp. */
+  last_check_at: string | null;
+  /** Newest binding event, else newest observation ("last change" in the honest sense). */
+  last_change_at: string | null;
 };
 
 export type RecordedGap = {
@@ -368,6 +376,8 @@ export type RawLedgerData = {
   incidents_md: string;
   public_key_md: string;
   method_md: string;
+  /** Object cache from data branch objects.jsonl (sha → record). */
+  objects: Map<string, import('./objects').ObjectRecord>;
 };
 
 /** True when repo is the canary (never count in ecosystem totals). */

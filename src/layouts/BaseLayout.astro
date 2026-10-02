@@ -38,14 +38,16 @@ const path = Astro.url.pathname;
     <slot name="head" />
   </head>
   <body>
-    <div class="site-shell">
-      <header class="site-header">
+    <header class="site-header">
+      <div class="site-shell header-inner">
         <a class="wordmark" href="/" aria-label="Refledger home">
-          <span class="wordmark-line" aria-hidden="true"></span>
-          <span class="wordmark-line stepped" aria-hidden="true"></span>
+          <svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true" fill="none" stroke-width="2.2" stroke-linecap="round">
+            <path d="M2 5 H28" stroke="currentColor"></path>
+            <path d="M2 11 H14 V17 H28" stroke="var(--accent)"></path>
+          </svg>
           <span class="wordmark-text">Refledger</span>
         </a>
-        <nav aria-label="Primary">
+        <nav aria-label="Main">
           <ul class="site-nav">
             <li>
               <a href="/moved" aria-current={path.startsWith('/moved') ? 'page' : undefined}
@@ -73,22 +75,22 @@ const path = Astro.url.pathname;
               >
             </li>
             <li>
-              <a href="https://github.com/GautamTalksDev/refledger">Source on GitHub</a>
+              <a class="nav-source" href="https://github.com/GautamTalksDev/refledger"
+                >Source on GitHub</a
+              >
             </li>
           </ul>
         </nav>
-      </header>
-      <main class="site-main">
-        <slot />
-      </main>
-      <footer class="site-footer">
-        <p>
-          A public, signed record of what GitHub Action tags pointed at, and when they moved.
-          <a href="/verify">Verify the ledger</a>
-          ·
-          <a href="/incidents">What went wrong, on the record</a>
-        </p>
-      </footer>
-    </div>
+      </div>
+    </header>
+    <main class="site-main site-shell">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="site-shell footer-inner">
+        <span>Refledger records facts, never verdicts. Code under Apache 2.0.</span>
+        <span>Public key, crawler policy and kill test are on GitHub.</span>
+      </div>
+    </footer>
   </body>
 </html>

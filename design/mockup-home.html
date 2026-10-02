@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Refledger homepage</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:ital,wght@0,400;0,700;1,400&amp;family=B612+Mono:wght@400;700&amp;display=swap">
+<style>
+body{margin:0;background:#EDF0EE}
+a{color:#262B30}a:hover{color:#2347C8}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #EDF0EE; color: #262B30; font-family: 'B612', 'Segoe UI', system-ui, sans-serif; font-size: 16px; line-height: 1.55">
+
+<header style="border-bottom: 1px solid #D3DAD6; background: #EDF0EE">
+<div style="max-width: 1240px; margin: 0 auto; padding: 18px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap">
+<a href="#top" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #262B30">
+<svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true" fill="none" stroke-width="2.2" stroke-linecap="round">
+<path d="M2 5 H28" stroke="#262B30"></path>
+<path d="M2 11 H14 V17 H28" stroke="{{accent}}"></path>
+</svg>
+<span style="font-weight: 700; font-size: 19px; letter-spacing: -0.01em">Refledger</span>
+</a>
+<nav aria-label="Main" style="display: flex; align-items: center; gap: 28px; flex-wrap: wrap; font-size: 15px">
+<a href="#moved" style="text-decoration: none">Moved</a>
+<a href="#actions" style="text-decoration: none">Actions</a>
+<a href="#record" style="text-decoration: none">Verify</a>
+<a href="#why" style="text-decoration: none">Why tags move</a>
+<a href="https://github.com/GautamTalksDev/refledger" style="text-decoration: none; padding: 10px 16px; border: 1px solid #262B30; border-radius: 10px; min-height: 44px; box-sizing: border-box; display: inline-flex; align-items: center">Source on GitHub</a>
+</nav>
+</div>
+</header>
+
+<main id="top" style="max-width: 1240px; margin: 0 auto; padding: 72px 32px 96px">
+
+<section aria-labelledby="hero-title" style="display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end; justify-content: space-between">
+<div style="flex: 1 1 620px; max-width: 760px">
+<h1 id="hero-title" style="margin: 0; font-size: 60px; line-height: 1.04; font-weight: 700; letter-spacing: -0.025em">A tag is a pointer. We write down where it points.</h1>
+<p style="margin: 24px 0 0; font-size: 19px; line-height: 1.6; color: #4A5553; max-width: 600px">Refledger checks every watched GitHub Action tag every five minutes and keeps a signed, public record of each move. You can verify all of it yourself, without trusting us.</p>
+</div>
+<form style="flex: 1 1 360px; max-width: 420px; display: flex; flex-direction: column; gap: 10px" action="#actions">
+<label for="lookup" style="font-size: 14px; color: #4A5553">Look up an action</label>
+<div style="display: flex; gap: 8px">
+<input id="lookup" type="text" placeholder="actions/checkout" style="flex: 1 1 auto; min-width: 0; min-height: 48px; box-sizing: border-box; padding: 0 16px; border: 1px solid #B8C2BE; border-radius: 12px; background: #F7F9F8; font-family: 'B612 Mono', ui-monospace, monospace; font-size: 15px; color: #262B30">
+<button type="submit" style="min-height: 48px; padding: 0 20px; border: 0; border-radius: 12px; background: #262B30; color: #F7F9F8; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">Look up</button>
+</div>
+</form>
+</section>
+
+<section aria-labelledby="wall-title" style="margin-top: 56px; background: #F7F9F8; border: 1px solid #D3DAD6; border-radius: 22px; box-shadow: 0 1px 0 #FFFFFF inset, 0 24px 60px -32px rgba(38, 43, 48, 0.35); overflow: hidden">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 28px; border-bottom: 1px solid #E1E6E3">
+<div>
+<h2 id="wall-title" style="margin: 0; font-size: 18px; font-weight: 700">Every watched tag since genesis</h2>
+<p style="margin: 4px 0 0; font-size: 14px; color: #5E6A69">One line per repository. A straight line means nothing moved.</p>
+</div>
+<div role="group" aria-label="Time range" style="display: flex; gap: 4px; padding: 4px; background: #E6EBE8; border-radius: 12px">
+<button type="button" aria-pressed="true" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: #FFFFFF; color: #262B30; font-family: inherit; font-size: 14px; font-weight: 700; box-shadow: 0 1px 2px rgba(38, 43, 48, 0.12)">Since genesis</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: #4A5553; font-family: inherit; font-size: 14px">7 days</button>
+<button type="button" aria-pressed="false" style="min-height: 40px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: #4A5553; font-family: inherit; font-size: 14px">30 days</button>
+</div>
+</div>
+
+<div style="overflow-x: auto; padding: 8px 12px 0">
+<svg viewBox="0 0 1200 530" style="display: block; width: 100%; min-width: 860px; height: auto" role="img" aria-label="Trace wall: 12 repositories shown with straight lines and no moves since genesis; the canary repository shows a deletion and recreation on 30 September, a content change on 1 October, and three tags moving together at 02:18 UTC; a recorded gap from 00:02 to 01:07 UTC on 1 October.">
+<defs>
+<pattern id="gap" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+<rect width="6" height="6" fill="#F7F9F8"></rect>
+<line x1="0" y1="0" x2="0" y2="6" stroke="#C9D1CD" stroke-width="2"></line>
+</pattern>
+</defs>
+
+<g font-family="B612, sans-serif" font-size="11.5" fill="#5E6A69">
+<text x="300" y="26">29 Sep 18:53 UTC, genesis</text>
+<text x="440.3" y="26" text-anchor="middle">30 Sep</text>
+<text x="1097.9" y="26" text-anchor="middle">1 Oct</text>
+<text x="1180" y="26" text-anchor="end" fill="#262B30" font-weight="700">Now</text>
+</g>
+<line x1="300" y1="38" x2="1180" y2="38" stroke="#D3DAD6"></line>
+<line x1="440.3" y1="38" x2="440.3" y2="486" stroke="#E1E6E3"></line>
+<line x1="1097.9" y1="38" x2="1097.9" y2="486" stroke="#E1E6E3"></line>
+<rect x="436.3" y="34" width="8" height="8" transform="rotate(45 440.3 38)" fill="#262B30"></rect>
+<rect x="1093.9" y="34" width="8" height="8" transform="rotate(45 1097.9 38)" fill="#262B30"></rect>
+
+<rect x="1097.9" y="44" width="30.4" height="442" fill="url(#gap)"></rect>
+<text x="1113" y="58" text-anchor="middle" font-family="B612, sans-serif" font-size="10" fill="#5E6A69">gap</text>
+
+<g font-family="B612, sans-serif" font-size="11.5" fill="#262B30" text-anchor="end">
+<text x="288" y="74">actions/checkout</text>
+<text x="288" y="96">actions/setup-node</text>
+<text x="288" y="118">actions/cache</text>
+<text x="288" y="140">actions/upload-artifact</text>
+<text x="288" y="162">actions/attest-build-provenance</text>
+<text x="288" y="184">docker/build-push-action</text>
+<text x="288" y="206">aws-actions/configure-aws-credentials</text>
+<text x="288" y="228">aws-actions/amazon-ecr-login</text>
+<text x="288" y="250">azure/login</text>
+<text x="288" y="272">aquasecurity/trivy-action</text>
+<text x="288" y="294">tj-actions/changed-files</text>
+<text x="288" y="316">reviewdog/action-setup</text>
+</g>
+<g stroke="#262B30" stroke-width="1.4" stroke-linecap="round">
+<line x1="300" y1="70" x2="1097.9" y2="70"></line><line x1="1128.3" y1="70" x2="1180" y2="70"></line>
+<line x1="300" y1="92" x2="1097.9" y2="92"></line><line x1="1128.3" y1="92" x2="1180" y2="92"></line>
+<line x1="300" y1="114" x2="1097.9" y2="114"></line><line x1="1128.3" y1="114" x2="1180" y2="114"></line>
+<line x1="300" y1="136" x2="1097.9" y2="136"></line><line x1="1128.3" y1="136" x2="1180" y2="136"></line>
+<line x1="300" y1="158" x2="1097.9" y2="158"></line><line x1="1128.3" y1="158" x2="1180" y2="158"></line>
+<line x1="300" y1="180" x2="1097.9" y2="180"></line><line x1="1128.3" y1="180" x2="1180" y2="180"></line>
+<line x1="300" y1="202" x2="1097.9" y2="202"></line><line x1="1128.3" y1="202" x2="1180" y2="202"></line>
+<line x1="300" y1="224" x2="1097.9" y2="224"></line><line x1="1128.3" y1="224" x2="1180" y2="224"></line>
+<line x1="300" y1="246" x2="1097.9" y2="246"></line><line x1="1128.3" y1="246" x2="1180" y2="246"></line>
+<line x1="300" y1="268" x2="1097.9" y2="268"></line><line x1="1128.3" y1="268" x2="1180" y2="268"></line>
+<line x1="300" y1="290" x2="1097.9" y2="290"></line><line x1="1128.3" y1="290" x2="1180" y2="290"></line>
+<line x1="300" y1="312" x2="1097.9" y2="312"></line><line x1="1128.3" y1="312" x2="1180" y2="312"></line>
+</g>
+<text x="300" y="344" font-family="B612, sans-serif" font-size="12" font-style="italic" fill="#5E6A69">23 more repositories, every one unchanged since genesis</text>
+
+<line x1="300" y1="364" x2="1180" y2="364" stroke="#D3DAD6" stroke-dasharray="2 4"></line>
+<text x="288" y="388" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" font-weight="700" fill="#262B30">Canary, our test repo</text>
+<text x="300" y="388" font-family="B612, sans-serif" font-size="11.5" fill="#5E6A69">Tags here are moved on purpose, to prove the instrument works.</text>
+
+<g font-family="B612 Mono, monospace" font-size="11" fill="#262B30" text-anchor="end">
+<text x="288" y="414">v1.0.0</text>
+<text x="288" y="438">v3.0.0</text>
+<text x="288" y="462">v9.0.0</text>
+<text x="288" y="476">v9.0.1</text>
+<text x="288" y="490">v9.0.2</text>
+</g>
+
+<g stroke-width="1.4" stroke-linecap="round" fill="none">
+<line x1="300" y1="410" x2="1097.9" y2="410" stroke="#262B30"></line>
+<path d="M1128.3 410 V418 H1180" stroke="{{accent}}" stroke-width="2"></path>
+
+<line x1="300" y1="434" x2="580.3" y2="434" stroke="#262B30"></line>
+<line x1="585" y1="440" x2="1097.9" y2="440" stroke="#262B30"></line>
+<line x1="1128.3" y1="440" x2="1180" y2="440" stroke="#262B30"></line>
+
+<path d="M1151.3 458 H1160.9 V464 H1180" stroke="{{accent}}" stroke-width="2"></path>
+<path d="M1151.3 472 H1160.9 V478 H1180" stroke="{{accent}}" stroke-width="2"></path>
+<path d="M1151.3 486 H1160.9 V492 H1180" stroke="{{accent}}" stroke-width="2"></path>
+</g>
+<circle cx="580.3" cy="434" r="3.2" fill="#F7F9F8" stroke="#262B30" stroke-width="1.4"></circle>
+<circle cx="585" cy="440" r="3.2" fill="{{accent}}"></circle>
+<circle cx="1128.3" cy="414" r="3.2" fill="{{accent}}"></circle>
+<circle cx="1151.3" cy="458" r="2.6" fill="#F7F9F8" stroke="#262B30" stroke-width="1.2"></circle>
+<circle cx="1151.3" cy="472" r="2.6" fill="#F7F9F8" stroke="#262B30" stroke-width="1.2"></circle>
+<circle cx="1151.3" cy="486" r="2.6" fill="#F7F9F8" stroke="#262B30" stroke-width="1.2"></circle>
+<rect x="1155.9" y="452" width="10" height="46" rx="5" fill="{{accent}}" fill-opacity="0.14"></rect>
+
+<path d="M1146 508 H1161" stroke="{{accent}}" stroke-width="1" fill="none"></path>
+<path d="M1161 508 V500" stroke="{{accent}}" stroke-width="1" fill="none"></path>
+<text x="1140" y="512" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" fill="#262B30">Three exact tags moved to one new commit at 02:18 UTC. Recorded as one correlation.</text>
+</svg>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px 28px; padding: 16px 28px 22px; border-top: 1px solid #E1E6E3; font-size: 13px; color: #4A5553">
+<span style="display: inline-flex; align-items: center; gap: 8px"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="#262B30" stroke-width="1.6"></line></svg>Unchanged</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><svg width="26" height="12" aria-hidden="true"><path d="M1 3 H12 V9 H25" stroke="{{accent}}" stroke-width="2" fill="none"></path></svg>Tag moved</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="18" y2="5" stroke="#262B30" stroke-width="1.6"></line><circle cx="20" cy="5" r="3" fill="#F7F9F8" stroke="#262B30" stroke-width="1.4"></circle></svg>Tag deleted</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><svg width="26" height="12" aria-hidden="true"><rect x="1" y="1" width="24" height="10" fill="url(#gap)" stroke="#C9D1CD"></rect></svg>Recorded gap, poller down</span>
+<span style="display: inline-flex; align-items: center; gap: 8px"><svg width="14" height="14" aria-hidden="true"><rect x="3" y="3" width="8" height="8" transform="rotate(45 7 7)" fill="#262B30"></rect></svg>Day sealed and witnessed</span>
+</div>
+</section>
+
+<p style="margin: 28px 0 0; font-size: 20px; line-height: 1.5; max-width: 820px">No ecosystem tag has moved since genesis. <span style="color: #5E6A69">Every movement on the wall above is our canary, moved on purpose.</span></p>
+
+<div style="margin-top: 64px; display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start">
+
+<section id="moved" aria-labelledby="moved-title" style="flex: 1 1 620px; min-width: 0">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<h2 id="moved-title" style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.01em">Moved in the last 7 days</h2>
+<a href="#moved" style="font-size: 14px">Subscribe with RSS</a>
+</div>
+<div style="margin-top: 18px; overflow-x: auto; border: 1px solid #D3DAD6; border-radius: 16px; background: #F7F9F8">
+<table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px">
+<thead>
+<tr style="text-align: left; color: #5E6A69">
+<th scope="col" style="padding: 14px 18px; font-weight: 400; border-bottom: 1px solid #E1E6E3">When, UTC</th>
+<th scope="col" style="padding: 14px 18px; font-weight: 400; border-bottom: 1px solid #E1E6E3">Tag</th>
+<th scope="col" style="padding: 14px 18px; font-weight: 400; border-bottom: 1px solid #E1E6E3">What changed</th>
+<th scope="col" style="padding: 14px 18px; font-weight: 400; border-bottom: 1px solid #E1E6E3">From, to</th>
+<th scope="col" style="padding: 14px 18px; font-weight: 400; border-bottom: 1px solid #E1E6E3">Severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; white-space: nowrap">1 Oct, 02:18</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3"><div style="font-family: 'B612 Mono', monospace">v9.0.0, v9.0.1, v9.0.2</div><div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: #5E6A69"><span style="padding: 2px 8px; border: 1px solid #B8C2BE; border-radius: 999px">Canary</span>GautamTalksDev/canary</div></td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3">Three tags moved together</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; font-family: 'B612 Mono', monospace; white-space: nowrap">5f7797a → 9501ea4</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; color: {{accent}}; font-weight: 700">High</td>
+</tr>
+<tr>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; white-space: nowrap">1 Oct, 01:07</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3"><div style="font-family: 'B612 Mono', monospace">v1.0.0</div><div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: #5E6A69"><span style="padding: 2px 8px; border: 1px solid #B8C2BE; border-radius: 999px">Canary</span>GautamTalksDev/canary</div></td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3">Code changed under an exact tag</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; font-family: 'B612 Mono', monospace; white-space: nowrap">1826be9 → 7272eeb</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; color: {{accent}}; font-weight: 700">High</td>
+</tr>
+<tr>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; white-space: nowrap">30 Sep, 05:17</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3"><div style="font-family: 'B612 Mono', monospace">v3.0.0</div><div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: #5E6A69"><span style="padding: 2px 8px; border: 1px solid #B8C2BE; border-radius: 999px">Canary</span>GautamTalksDev/canary</div></td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3">Deleted tag came back, pointing somewhere new</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3; font-family: 'B612 Mono', monospace; white-space: nowrap">ca73a90 → 39a2d22</td>
+<td style="padding: 16px 18px; border-bottom: 1px solid #E1E6E3">Medium</td>
+</tr>
+<tr>
+<td style="padding: 16px 18px; white-space: nowrap">30 Sep, 05:07</td>
+<td style="padding: 16px 18px"><div style="font-family: 'B612 Mono', monospace">v3.0.0</div><div style="margin-top: 6px; display: flex; gap: 8px; align-items: center; font-size: 12px; color: #5E6A69"><span style="padding: 2px 8px; border: 1px solid #B8C2BE; border-radius: 999px">Canary</span>GautamTalksDev/canary</div></td>
+<td style="padding: 16px 18px">Tag deleted</td>
+<td style="padding: 16px 18px; font-family: 'B612 Mono', monospace; white-space: nowrap">ca73a90 → gone</td>
+<td style="padding: 16px 18px; color: #5E6A69">Info</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p style="margin: 14px 0 0; font-size: 13px; color: #5E6A69">Each row links to the ledger entry that records it. Times are when we first saw the change; the exact moment falls between two checks.</p>
+</section>
+
+<aside id="record" aria-labelledby="record-title" style="flex: 1 1 340px; min-width: 0; background: #262B30; color: #EDF0EE; border-radius: 22px; padding: 28px">
+<h2 id="record-title" style="margin: 0; font-size: 22px; font-weight: 700">The record, checked</h2>
+<p style="margin: 8px 0 0; font-size: 14px; color: #B9C4C0">Last day sealed: 30 September.</p>
+<dl style="margin: 22px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px">
+<div style="padding-bottom: 16px; border-bottom: 1px solid #3A4147">
+<dt style="font-size: 13px; color: #B9C4C0">Chain</dt>
+<dd style="margin: 4px 0 0; font-size: 15px">49 entries, every one hash linked to the last</dd>
+</div>
+<div style="padding-bottom: 16px; border-bottom: 1px solid #3A4147">
+<dt style="font-size: 13px; color: #B9C4C0">Signed with</dt>
+<dd style="margin: 4px 0 0; font-family: 'B612 Mono', monospace; font-size: 14px; word-break: break-all">b3e7e795c35dee53731e039b76da930f</dd>
+</div>
+<div style="padding-bottom: 16px; border-bottom: 1px solid #3A4147">
+<dt style="font-size: 13px; color: #B9C4C0">Witnessed by Sigstore Rekor</dt>
+<dd style="margin: 4px 0 0; font-family: 'B612 Mono', monospace; font-size: 14px">Entry 3027764712</dd>
+</div>
+<div>
+<dt style="font-size: 13px; color: #B9C4C0">Gaps on the record</dt>
+<dd style="margin: 4px 0 0; font-size: 15px">215 skipped checks, 1 failed, all disclosed</dd>
+</div>
+</dl>
+<a href="#record" style="margin-top: 26px; display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; background: #EDF0EE; color: #262B30; text-decoration: none; font-weight: 700; font-size: 15px">Verify it yourself in one command</a>
+<a href="#record" style="margin-top: 12px; display: block; text-align: center; font-size: 14px; color: #B9C4C0">Read the incident log</a>
+</aside>
+</div>
+
+<section id="why" aria-labelledby="why-title" style="margin-top: 88px; padding-top: 40px; border-top: 1px solid #D3DAD6; display: flex; flex-wrap: wrap; gap: 32px 64px">
+<h2 id="why-title" style="flex: 1 1 320px; margin: 0; font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; max-width: 420px">Pinning to a tag does not pin the code.</h2>
+<div style="flex: 1 1 520px; max-width: 680px; font-size: 17px; line-height: 1.7; color: #3A4447">
+<p style="margin: 0">When your workflow says <span style="font-family: 'B612 Mono', monospace; font-size: 15px">uses: owner/action@v4</span>, the label stays put while the code behind it can change overnight. GitHub keeps no record of where a tag used to point.</p>
+<p style="margin: 16px 0 0">In March 2025, 346 tags of tj-actions/changed-files were moved to one malicious commit. In March 2026, 76 of 77 tags of aquasecurity/trivy-action were. Refledger is the record that would have shown both, the moment they happened.</p>
+<a href="#why" style="margin-top: 20px; display: inline-block; font-weight: 700">Read why tags move, and when it matters</a>
+</div>
+</section>
+
+</main>
+
+<footer style="border-top: 1px solid #D3DAD6">
+<div style="max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 13px; color: #5E6A69">
+<span>Refledger records facts, never verdicts. Code under Apache 2.0.</span>
+<span>Public key, crawler policy and kill test are on GitHub.</span>
+</div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#2347C8","options":["#2347C8","#0F6E6A","#6B3FB0"]},"$preview":{"width":1440,"height":2150}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#2347C8' };
+}
+}
+</script>
+</body>
+</html>

@@ -3,6 +3,8 @@
  * Build fails loudly if the raw layer throws.
  */
 
+import { computeGapBands, type GapBand } from './gaps';
+import { resolvePinCommit, type ObjectRecord } from './objects';
 import { fetchLedgerData } from './fetch';
 import {
   CANARY_REPO,
@@ -35,6 +37,7 @@ export {
   ensureCaches,
   loadRawLedger,
 } from './fetch';
+export type { GapBand } from './gaps';
 
 export type TraceEvent = {
   seq: number;
@@ -44,9 +47,20 @@ export type TraceEvent = {
   event: 'move' | 'deletion' | 'recreation';
   recorded_at: string;
   severity?: string;
+  classification?: string | null;
   toCommit?: string;
   fromCommit?: string;
   isCanary: boolean;
+};
+
+export type CorrelationCaption = {
+  seq: number;
+  at: string;
+  repo: string;
+  caption: string;
+  member_seqs: number[];
+  tags: string[];
+  targetShort?: string;
 };
 
 export type SiteData = {
@@ -66,19 +80,24 @@ export type SiteData = {
   repos: RepoView[];
   reposByName: Map<string, RepoView>;
   gaps: RecordedGap[];
+  gapBands: GapBand[];
   seals: Seal[];
   traceEvents: TraceEvent[];
+  correlationCaptions: CorrelationCaption[];
   genesisAt: string;
   buildTime: string;
   chainLength: number;
   signingKeyPrefix: string;
+  signingKeyShort: string;
   latestRekor: { log_index: number; seq: number } | null;
+  lastSealedDate: string | null;
   digestGapTotals: { skipped: number; failed: number };
   incidentsMd: string;
   publicKeyMd: string;
   methodMd: string;
   wallDefaultRepos: string[];
   ecosystemMovesLast7Days: number;
+  pinStats: { total: number; pinned: number; unresolved: number };
 };
 
 function tagFromRef(ref: string): string {
@@ -127,6 +146,7 @@ function buildTagTimelines(
   repo: string,
   entries: LedgerEntry[],
   tipObs: Observation | undefined,
+  objects: Map<string, ObjectRecord>,
 ): TagTimeline[] {
   const byRef = new Map<string, TagBindingEvent[]>();
 
@@ -166,6 +186,7 @@ function buildTagTimelines(
   const tips = new Map<string, TagTip>();
   if (tipObs?.outcome.type === 'ok') {
     for (const r of tipObs.outcome.refs) {
+      const pin = resolvePinCommit(r, objects);
       tips.set(r.name, {
         name: r.name,
         ref_type: r.ref_type,
@@ -173,7 +194,8 @@ function buildTagTimelines(
         commit_sha: r.commit_sha,
         tree_sha: r.tree_sha,
         action_yml_sha: r.action_yml_sha,
-        peeled: Boolean(r.commit_sha),
+        pin_commit: pin,
+        peeled: Boolean(pin),
         observed_at: tipObs.observed_at,
         observation_id: tipObs.observation_id,
       });
@@ -191,7 +213,7 @@ function buildTagTimelines(
 }
 
 function buildSiteData(raw: RawLedgerData): SiteData {
-  const { entries, heads, observations, watched } = raw;
+  const { entries, heads, observations, watched, objects } = raw;
   const entriesBySeq = new Map(entries.map((e) => [e.seq, e]));
   const moves = entries.filter((e): e is MoveEntry => e.event === 'move');
   const deletions = entries.filter((e): e is DeletionEntry => e.event === 'deletion');
@@ -242,20 +264,65 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     if (!prev || w.added_at < prev.added_at) watchedMeta.set(w.repo, w);
   }
 
+  const obsByRepo = new Map<string, Observation[]>();
+  for (const o of observations) {
+    const list = obsByRepo.get(o.repo) ?? [];
+    list.push(o);
+    obsByRepo.set(o.repo, list);
+  }
+
   const repos: RepoView[] = repoOrder.map((repo) => {
     const meta = watchedMeta.get(repo);
     const ev = eventsByRepo.get(repo) ?? [];
+    const obs = obsByRepo.get(repo) ?? [];
+    const lastCheck =
+      obs.length === 0
+        ? null
+        : [...obs].sort((a, b) => (a.observed_at < b.observed_at ? 1 : -1))[0]
+            .observed_at;
+    const bindingTimes = ev
+      .filter(
+        (e) =>
+          e.event === 'move' || e.event === 'deletion' || e.event === 'recreation',
+      )
+      .map((e) => e.recorded_at);
+    const lastBinding =
+      bindingTimes.length === 0
+        ? null
+        : bindingTimes.sort()[bindingTimes.length - 1];
+    // Prefer earliest population_change added or watched.added_at.
+    let watchedSince = meta?.added_at ?? null;
+    for (const e of ev) {
+      if (e.event === 'population_change' && e.population_change.change === 'added') {
+        if (!watchedSince || e.recorded_at < watchedSince) {
+          watchedSince = e.recorded_at;
+        }
+      }
+    }
     return {
       repo,
       path: meta?.path,
       canary: isCanary(repo),
-      watched_since: meta?.added_at ?? null,
+      watched_since: watchedSince,
       active: meta?.active ?? true,
-      tags: buildTagTimelines(repo, ev, tipByRepo.get(repo)),
+      tags: buildTagTimelines(repo, ev, tipByRepo.get(repo), objects),
       entries: ev,
+      checks_so_far: obs.length,
+      last_check_at: lastCheck,
+      last_change_at: lastBinding ?? lastCheck,
     };
   });
   const reposByName = new Map(repos.map((r) => [r.repo, r]));
+
+  let pinStats = { total: 0, pinned: 0, unresolved: 0 };
+  for (const r of repos) {
+    for (const t of r.tags) {
+      if (!t.tip) continue;
+      pinStats.total += 1;
+      if (t.tip.pin_commit) pinStats.pinned += 1;
+      else pinStats.unresolved += 1;
+    }
+  }
 
   const gaps: RecordedGap[] = [];
   for (const o of observations) {
@@ -278,6 +345,8 @@ function buildSiteData(raw: RawLedgerData): SiteData {
       detail,
     });
   }
+
+  const gapBands = computeGapBands(observations, repoOrder);
 
   const headBySeq = new Map<number, SignedHead>();
   for (const h of heads) {
@@ -306,12 +375,36 @@ function buildSiteData(raw: RawLedgerData): SiteData {
       event: e.event,
       recorded_at: e.recorded_at,
       severity: e.severity,
+      classification: displayClassification(e),
       toCommit: e.to?.commit_sha ?? e.to?.target_sha,
       fromCommit: e.from?.commit_sha ?? e.from?.target_sha,
       isCanary: isCanary(e.repo),
     });
   }
   traceEvents.sort((a, b) => (a.recorded_at < b.recorded_at ? 1 : -1));
+
+  const correlationCaptions: CorrelationCaption[] = correlations.map((c) => {
+    const tags = (c.correlation.refs_moved_together ?? []).map(tagFromRef);
+    const members = c.correlation.member_seqs
+      .map((s) => entriesBySeq.get(s))
+      .filter(Boolean) as LedgerEntry[];
+    const target =
+      members.find((m) => m.event === 'move' && 'to' in m)?.to?.commit_sha ??
+      members.find((m) => m.event === 'move' && 'to' in m)?.to?.target_sha;
+    const n = tags.length || c.correlation.refs_moved_together?.length || 0;
+    const time = formatUtcClock(c.recorded_at);
+    const form = describeTagForm(tags);
+    const caption = `${n === 0 ? 'Several' : n === 1 ? 'One' : n === 2 ? 'Two' : n === 3 ? 'Three' : String(n)} ${form} moved to one new commit at ${time} UTC. Recorded as one correlation.`;
+    return {
+      seq: c.seq,
+      at: c.recorded_at,
+      repo: c.repo ?? '',
+      caption,
+      member_seqs: c.correlation.member_seqs,
+      tags,
+      targetShort: target ? target.slice(0, 7) : undefined,
+    };
+  });
 
   const buildTime = new Date().toISOString();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
@@ -346,6 +439,15 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     }
   }
 
+  const lastSealedDate =
+    seals.length > 0
+      ? seals[seals.length - 1].digest.observation_digest.date
+      : null;
+
+  const pubkey =
+    heads.find((h) => h.public_key)?.public_key ??
+    'b3e7e795c35dee53731e039b76da930fc54e87e2edc632449a8a2e55252e276a';
+
   return {
     raw,
     entries,
@@ -363,20 +465,39 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     repos,
     reposByName,
     gaps,
+    gapBands,
     seals,
     traceEvents,
+    correlationCaptions,
     genesisAt: entries[0]?.recorded_at ?? buildTime,
     buildTime,
     chainLength: entries.length,
-    signingKeyPrefix: 'b3e7',
+    signingKeyPrefix: pubkey.slice(0, 4),
+    signingKeyShort: pubkey.slice(0, 32),
     latestRekor,
+    lastSealedDate,
     digestGapTotals,
     incidentsMd: raw.incidents_md,
     publicKeyMd: raw.public_key_md,
     methodMd: raw.method_md,
     wallDefaultRepos,
     ecosystemMovesLast7Days,
+    pinStats,
   };
+}
+
+function formatUtcClock(iso: string): string {
+  const d = new Date(iso);
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function describeTagForm(tags: string[]): string {
+  if (tags.length === 0) return 'tags';
+  const exact = tags.every((t) => /^\d+\.\d+\.\d+$/.test(t) || /^v\d+\.\d+\.\d+$/.test(t));
+  if (exact) return tags.length === 1 ? 'exact tag' : 'exact tags';
+  return tags.length === 1 ? 'tag' : 'tags';
 }
 
 let cached: SiteData | null = null;

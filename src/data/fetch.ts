@@ -20,6 +20,7 @@ import type {
   SignedHead,
   WatchedEntry,
 } from './types';
+import { loadObjectCache } from './objects';
 
 const REPO_URL = 'https://github.com/GautamTalksDev/refledger.git';
 
@@ -312,6 +313,7 @@ export function fetchLedgerData(options: FetchOptions = {}): RawLedgerData {
   const incidents_md = readMarkdown(incidentsPath, true);
   const public_key_md = readMarkdown(publicKeyPath, true);
   const method_md = readMarkdown(methodPath, true);
+  const objects = loadObjectCache(dataDir);
 
   return {
     entries,
@@ -321,6 +323,7 @@ export function fetchLedgerData(options: FetchOptions = {}): RawLedgerData {
     incidents_md,
     public_key_md,
     method_md,
+    objects,
   };
 }
 
@@ -351,5 +354,6 @@ export function fetchFromFixtureRoot(fixtureRoot: string): RawLedgerData {
     incidents_md: readMarkdown(join(fixtureRoot, 'INCIDENTS.md'), false),
     public_key_md: readMarkdown(join(fixtureRoot, 'PUBLIC-KEY.md'), false),
     method_md: readMarkdown(join(fixtureRoot, 'METHOD.md'), false),
+    objects: loadObjectCache(fixtureRoot),
   };
 }

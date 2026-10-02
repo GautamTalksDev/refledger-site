@@ -19,6 +19,8 @@ const data = getSiteData();
 const repo = data.reposByName.get(repoKey)!;
 const events = data.traceEvents.filter((e) => e.repo === repoKey);
 const [owner, name] = repoKey.split('/');
+const pinned = repo.tags.filter((t) => t.tip?.pin_commit).length;
+const tipCount = repo.tags.filter((t) => t.tip).length;
 ---
 
 <BaseLayout
@@ -31,17 +33,18 @@ const [owner, name] = repoKey.split('/');
     <a href="/actions">Actions</a> / <span class="mono">{repoKey}</span>
     {repo.canary && <span class="pill canary">Canary</span>}
   </p>
-  <h1>{repoKey}</h1>
+  <h1 style="font-size: clamp(1.6rem, 3vw, 34px); letter-spacing: -0.02em;">{repoKey}</h1>
   <p class="lede">
-    Watched since {repo.watched_since ?? 'unknown'}. Current tips below are from the newest Ok
-    observation with peeled refs when available.
+    Watched since {repo.watched_since ?? 'unknown'}. {repo.checks_so_far} checks so far.
+    Last change {repo.last_change_at ?? 'none yet'}.
+    {pinned} of {tipCount} current tips have a pin line.
   </p>
 
   <section class="section">
     <h2>Pin these commits</h2>
     <div class="stack">
       {
-        repo.tags.length === 0 ? (
+        tipCount === 0 ? (
           <p class="muted">No tags observed yet for this repository.</p>
         ) : (
           repo.tags.map((t) => {
@@ -55,21 +58,21 @@ const [owner, name] = repoKey.split('/');
                 </div>
               );
             }
-            if (!tip.peeled || !tip.commit_sha) {
+            if (!tip.pin_commit) {
               return (
                 <div>
                   <p class="mono">{tag}</p>
                   <p>
-                    The commit has not been resolved yet (unpeeled tip{' '}
+                    The commit has not been resolved yet (tip{' '}
                     <span class="mono" title={tip.target_sha}>
                       {shortSha(tip.target_sha)}
                     </span>
-                    ).
+                    , {tip.ref_type}).
                   </p>
                 </div>
               );
             }
-            const line = `uses: ${repoKey}@${tip.commit_sha} # ${tag}`;
+            const line = `uses: ${repoKey}@${tip.pin_commit} # ${tag}`;
             return (
               <div class="pre-block">
                 <button class="copy-btn" type="button" data-copy={line}>
@@ -90,11 +93,13 @@ const [owner, name] = repoKey.split('/');
       showToolbar={false}
       buildTime={data.buildTime}
       genesisAt={data.genesisAt}
-      wallRepos={[repoKey]}
+      wallRepos={repo.canary ? [] : [repoKey]}
       allRepos={[repo]}
       canary={repo.canary ? repo : null}
       events={events}
       seals={data.seals}
+      gaps={data.gapBands.filter((g) => g.repos.includes(repoKey) || g.repos.length === 0)}
+      correlations={data.correlationCaptions.filter((c) => c.repo === repoKey)}
     />
   </section>
 
@@ -113,26 +118,35 @@ const [owner, name] = repoKey.split('/');
         </thead>
         <tbody>
           {
-            repo.entries
-              .slice()
-              .reverse()
-              .map((e) => (
-                <tr>
-                  <td>
-                    <a class="mono" href={`/e/${e.seq}`}>
-                      {e.seq}
-                    </a>
-                  </td>
-                  <td>{e.recorded_at}</td>
-                  <td>{e.event}</td>
-                  <td class="mono">
-                    {'ref' in e && typeof e.ref === 'string' ? tagFromRef(e.ref) : ''}
-                  </td>
-                  <td>
-                    <a href={`/e/${e.seq}`}>Open entry</a>
-                  </td>
-                </tr>
-              ))
+            repo.entries.length === 0 ? (
+              <tr>
+                <td colspan="5">
+                  No ledger events yet. {repo.checks_so_far} observations are on record since{' '}
+                  {repo.watched_since ?? 'watch start'}.
+                </td>
+              </tr>
+            ) : (
+              repo.entries
+                .slice()
+                .reverse()
+                .map((e) => (
+                  <tr>
+                    <td>
+                      <a class="mono" href={`/e/${e.seq}`}>
+                        {e.seq}
+                      </a>
+                    </td>
+                    <td>{e.recorded_at}</td>
+                    <td>{e.event}</td>
+                    <td class="mono">
+                      {'ref' in e && typeof e.ref === 'string' ? tagFromRef(e.ref) : ''}
+                    </td>
+                    <td>
+                      <a href={`/e/${e.seq}`}>Open entry</a>
+                    </td>
+                  </tr>
+                ))
+            )
           }
         </tbody>
       </table>

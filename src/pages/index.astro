@@ -5,7 +5,6 @@ import TraceWall from '../components/TraceWall.astro';
 import {
   ecosystemSentence,
   getSiteData,
-  isCanary,
   movedInLastDays,
   shortSha,
 } from '../data';
@@ -18,6 +17,89 @@ const sentence = ecosystemSentence();
 const rekorUrl = data.latestRekor
   ? `https://search.sigstore.dev/?logIndex=${data.latestRekor.log_index}`
   : null;
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = d.getUTCDate();
+  const mon = months[d.getUTCMonth()];
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${day} ${mon}, ${hh}:${mm}`;
+}
+
+function whatChanged(ev: (typeof recent)[number]): string {
+  if (ev.event === 'deletion') return 'Tag deleted';
+  if (ev.event === 'recreation') return 'Deleted tag came back, pointing somewhere new';
+  if (ev.classification === 'content_change') return 'Code changed under an exact tag';
+  return 'Tag tip moved';
+}
+
+function severityLabel(s?: string): string {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatSealDate(isoDate: string | null): string {
+  if (!isoDate) return 'none yet';
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${d} ${months[m - 1]}`;
+}
+
+// Group correlation members shown as one row when they share a batch
+const corrSeqs = new Set(data.correlationCaptions.flatMap((c) => c.member_seqs));
+const shownCorr = new Set<number>();
+const movedRows: {
+  when: string;
+  tags: string;
+  repo: string;
+  canary: boolean;
+  what: string;
+  fromTo: string;
+  severity: string;
+  high: boolean;
+  href: string;
+}[] = [];
+
+for (const ev of recent) {
+  const corr = data.correlationCaptions.find((c) => c.member_seqs.includes(ev.seq));
+  if (corr && !shownCorr.has(corr.seq)) {
+    shownCorr.add(corr.seq);
+    const members = recent.filter((e) => corr.member_seqs.includes(e.seq));
+    const from = members[0]?.fromCommit;
+    const to = members[0]?.toCommit;
+    movedRows.push({
+      when: formatWhen(corr.at),
+      tags: corr.tags.join(', '),
+      repo: corr.repo || ev.repo,
+      canary: true,
+      what: `${corr.tags.length === 3 ? 'Three' : corr.tags.length} tags moved together`,
+      fromTo: `${shortSha(from)} → ${shortSha(to)}`,
+      severity: severityLabel(members[0]?.severity) || 'High',
+      high: members.some((m) => m.severity === 'high'),
+      href: `/e/${corr.seq}`,
+    });
+    continue;
+  }
+  if (corrSeqs.has(ev.seq) && shownCorr.size) continue;
+  if (corrSeqs.has(ev.seq)) continue;
+
+  movedRows.push({
+    when: formatWhen(ev.recorded_at),
+    tags: ev.tag,
+    repo: ev.repo,
+    canary: ev.isCanary,
+    what: whatChanged(ev),
+    fromTo:
+      ev.event === 'deletion'
+        ? `${shortSha(ev.fromCommit)} → gone`
+        : `${shortSha(ev.fromCommit)} → ${shortSha(ev.toCommit)}`,
+    severity: severityLabel(ev.severity),
+    high: ev.severity === 'high',
+    href: `/e/${ev.seq}`,
+  });
+}
 ---
 
 <BaseLayout
@@ -37,127 +119,144 @@ const rekorUrl = data.latestRekor
     })} />
   </Fragment>
 
-  <section class="section" style="margin-top: 1rem;">
-    <h1>A tag is a pointer. We write down where it points.</h1>
-    <p class="subline">
-      Refledger is a public, signed record of what GitHub Action tags pointed at, and when they
-      moved. You can verify every entry yourself.
-    </p>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <h1 id="hero-title">A tag is a pointer. We write down where it points.</h1>
+      <p class="hero-sub">
+        Refledger checks every watched GitHub Action tag every five minutes and keeps a signed,
+        public record of each move. You can verify all of it yourself, without trusting us.
+      </p>
+    </div>
     <LookupForm />
     <datalist id="watched-repos">
       {watchedNames.map((name) => <option value={name} />)}
     </datalist>
   </section>
 
-  <section class="section">
-    <TraceWall
-      buildTime={data.buildTime}
-      genesisAt={data.genesisAt}
-      wallRepos={data.wallDefaultRepos}
-      allRepos={data.repos}
-      canary={canary}
-      events={data.traceEvents}
-      seals={data.seals}
-    />
-    <p style="margin-top: 1rem;">{sentence}</p>
-  </section>
+  <TraceWall
+    buildTime={data.buildTime}
+    genesisAt={data.genesisAt}
+    wallRepos={data.wallDefaultRepos}
+    allRepos={data.repos}
+    canary={canary}
+    events={data.traceEvents}
+    seals={data.seals}
+    gaps={data.gapBands}
+    correlations={data.correlationCaptions}
+  />
 
-  <section class="section">
-    <h2>Moved in the last 7 days</h2>
-    <div class="table-wrap">
-      <table class="data">
-        <thead>
-          <tr>
-            <th scope="col">When</th>
-            <th scope="col">Repository</th>
-            <th scope="col">Tag</th>
-            <th scope="col">Event</th>
-            <th scope="col">To</th>
-            <th scope="col">Entry</th>
-          </tr>
-        </thead>
-        <tbody>
-          {
-            recent.length === 0 ? (
-              <tr>
-                <td colspan="6">No tag movements in the last 7 days.</td>
-              </tr>
-            ) : (
-              recent.map((ev) => (
-                <tr>
-                  <td>{ev.recorded_at}</td>
-                  <td>
-                    <a href={`/a/${ev.repo}`}>{ev.repo}</a>
-                    {ev.isCanary && <span class="pill canary">Canary</span>}
-                  </td>
-                  <td class="mono">{ev.tag}</td>
-                  <td class={ev.severity === 'high' ? 'severity-high' : undefined}>{ev.event}</td>
-                  <td>
-                    {ev.toCommit ? (
-                      <a
-                        class="mono"
-                        href={`https://github.com/${ev.repo}/commit/${ev.toCommit}`}
-                        title={ev.toCommit}
-                      >
-                        {shortSha(ev.toCommit)}
-                      </a>
-                    ) : (
-                      'n/a'
-                    )}
-                  </td>
-                  <td>
-                    <a class="mono" href={`/e/${ev.seq}`}>
-                      seq {ev.seq}
-                    </a>
-                  </td>
-                </tr>
-              ))
-            )
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
+  <p class="wall-sentence">
+    {sentence}
+    {
+      data.ecosystemMovesLast7Days === 0 && (
+        <span class="muted"> Every movement on the wall above is our canary, moved on purpose.</span>
+      )
+    }
+  </p>
 
-  <section class="section">
-    <div class="panel-dark">
-      <h2>The record, checked</h2>
-      <div class="stack">
-        <p>Chain length: <span class="mono">{data.chainLength}</span> entries</p>
-        <p>
-          Signing key prefix: <span class="mono">{data.signingKeyPrefix}…</span>
-        </p>
-        <p>
-          Latest Rekor entry:{' '}
-          {
-            data.latestRekor && rekorUrl ? (
-              <a class="mono" href={rekorUrl}>{data.latestRekor.log_index}</a>
-            ) : (
-              <span class="muted">none yet</span>
-            )
-          }
-        </p>
-        <p class="muted">
-          Gaps from signed digests: {data.digestGapTotals.skipped} skipped,{' '}
-          {data.digestGapTotals.failed} failed polls
-        </p>
-        <div class="row">
-          <a class="button primary" href="/verify">Verify the ledger</a>
-          <a href="/incidents">What went wrong, on the record</a>
-        </div>
+  <div class="home-split">
+    <section id="moved" class="moved-col" aria-labelledby="moved-title">
+      <div class="moved-head">
+        <h2 id="moved-title">Moved in the last 7 days</h2>
+        <a href="/moved.xml">Subscribe with RSS</a>
       </div>
-    </div>
-  </section>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">When, UTC</th>
+              <th scope="col">Tag</th>
+              <th scope="col">What changed</th>
+              <th scope="col">From, to</th>
+              <th scope="col">Severity</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              movedRows.length === 0 ? (
+                <tr>
+                  <td colspan="5">No tag movements in the last 7 days.</td>
+                </tr>
+              ) : (
+                movedRows.map((row) => (
+                  <tr>
+                    <td style="white-space: nowrap">{row.when}</td>
+                    <td>
+                      <div class="mono">{row.tags}</div>
+                      <div class="tag-cell-meta">
+                        {row.canary && <span class="pill canary">Canary</span>}
+                        <a href={`/a/${row.repo}`}>{row.repo}</a>
+                      </div>
+                    </td>
+                    <td>
+                      <a href={row.href}>{row.what}</a>
+                    </td>
+                    <td class="mono" style="white-space: nowrap">{row.fromTo}</td>
+                    <td class={row.high ? 'severity-high' : undefined}>{row.severity}</td>
+                  </tr>
+                ))
+              )
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">
+        Each row links to the ledger entry that records it. Times are when we first saw the change;
+        the exact moment falls between two checks.
+      </p>
+    </section>
 
-  <section class="section prose">
-    <h2>Pinning to a tag does not pin the code</h2>
-    <p>
-      A Git tag is a movable pointer. Workflows that say <code>uses: owner/repo@v4</code> resolve
-      whatever commit that tag names today. When the tag moves, the code your workflow runs moves
-      with it. Refledger writes down each binding we observe so you can see what changed, and when.
-    </p>
-    <p>
-      <a href="/why-pinning-tags-does-not-work">Why pinning tags does not work</a>
-    </p>
+    <aside id="record" class="record-panel" aria-labelledby="record-title">
+      <h2 id="record-title">The record, checked</h2>
+      <p class="record-sub">Last day sealed: {formatSealDate(data.lastSealedDate)}.</p>
+      <dl>
+        <div class="record-block">
+          <dt>Chain</dt>
+          <dd>{data.chainLength} entries, every one hash linked to the last</dd>
+        </div>
+        <div class="record-block">
+          <dt>Signed with</dt>
+          <dd class="mono" style="word-break: break-all">{data.signingKeyShort}</dd>
+        </div>
+        <div class="record-block">
+          <dt>Witnessed by Sigstore Rekor</dt>
+          <dd class="mono">
+            {
+              data.latestRekor && rekorUrl ? (
+                <a href={rekorUrl} style="color: #EDF0EE">Entry {data.latestRekor.log_index}</a>
+              ) : (
+                'none yet'
+              )
+            }
+          </dd>
+        </div>
+        <div class="record-block">
+          <dt>Gaps on the record</dt>
+          <dd>
+            {data.digestGapTotals.skipped} skipped checks, {data.digestGapTotals.failed} failed, all
+            disclosed
+          </dd>
+        </div>
+      </dl>
+      <a class="record-cta" href="/verify">Verify it yourself in one command</a>
+      <a class="record-link" href="/incidents">Read the incident log</a>
+    </aside>
+  </div>
+
+  <section id="why" class="why-section" aria-labelledby="why-title">
+    <h2 id="why-title">Pinning to a tag does not pin the code.</h2>
+    <div class="why-copy">
+      <p>
+        When your workflow says <span class="mono">uses: owner/action@v4</span>, the label stays put
+        while the code behind it can change overnight. GitHub keeps no record of where a tag used to
+        point.
+      </p>
+      <p>
+        In March 2025, 346 tags of tj-actions/changed-files were moved to one malicious commit. In
+        March 2026, 76 of 77 tags of aquasecurity/trivy-action were. Refledger is the record that
+        would have shown both, the moment they happened.
+      </p>
+      <a href="/why-pinning-tags-does-not-work">Read why tags move, and when it matters</a>
+    </div>
   </section>
 </BaseLayout>

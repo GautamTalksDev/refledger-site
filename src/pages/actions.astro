@@ -1,26 +1,19 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getSiteData, shortSha } from '../data';
+import { getSiteData } from '../data';
 
 const data = getSiteData();
 const rows = data.repos
   .filter((r) => r.active)
-  .map((r) => {
-    const bindingCount = r.tags.reduce((n, t) => n + t.events.length, 0);
-    const last = r.tags
-      .flatMap((t) => t.events)
-      .map((e) => e.recorded_at)
-      .sort()
-      .at(-1);
-    return {
-      repo: r.repo,
-      canary: r.canary,
-      tags: r.tags.length,
-      lastMove: last ?? null,
-      watchedSince: r.watched_since,
-      lines: bindingCount,
-    };
-  });
+  .map((r) => ({
+    repo: r.repo,
+    canary: r.canary,
+    tags: r.tags.length,
+    checks: r.checks_so_far,
+    lastChange: r.last_change_at,
+    watchedSince: r.watched_since,
+    lines: r.tags.reduce((n, t) => n + t.events.length, 0),
+  }));
 ---
 
 <BaseLayout
@@ -28,15 +21,18 @@ const rows = data.repos
   description="Every watched GitHub Action repository in the Refledger population."
   canonicalPath="/actions"
 >
-  <h1>Actions</h1>
-  <p class="lede">Every repository we watch. Search filters the table in your browser.</p>
+  <h1 style="font-size: 34px; letter-spacing: -0.02em; margin: 0 0 0.75rem;">Actions</h1>
+  <p class="lede">
+    Every repository we watch. Watched since, checks so far, and last change come from real
+    observations, even when no tag has moved.
+  </p>
 
   <label class="sr-only" for="actions-filter">Filter repositories</label>
   <input
     id="actions-filter"
     type="search"
     placeholder="Filter by name"
-    style="max-width: 24rem; margin-bottom: 1rem;"
+    style="max-width: 24rem; margin-bottom: 1rem; min-height: 44px; padding: 0 14px; border: 1px solid var(--grid); border-radius: 12px; background: var(--surface);"
   />
 
   <div class="table-wrap">
@@ -45,9 +41,9 @@ const rows = data.repos
         <tr>
           <th scope="col"><button type="button" data-sort="repo">Name</button></th>
           <th scope="col"><button type="button" data-sort="tags">Tags watched</button></th>
-          <th scope="col"><button type="button" data-sort="last">Last move</button></th>
+          <th scope="col"><button type="button" data-sort="checks">Checks so far</button></th>
+          <th scope="col"><button type="button" data-sort="last">Last change</button></th>
           <th scope="col"><button type="button" data-sort="since">Watched since</button></th>
-          <th scope="col"><button type="button" data-sort="lines">Lines of history</button></th>
         </tr>
       </thead>
       <tbody>
@@ -59,9 +55,9 @@ const rows = data.repos
                 {r.canary && <span class="pill canary">Canary</span>}
               </td>
               <td data-v={r.tags}>{r.tags}</td>
-              <td data-v={r.lastMove ?? ''}>{r.lastMove ?? 'none'}</td>
+              <td data-v={r.checks}>{r.checks}</td>
+              <td data-v={r.lastChange ?? ''}>{r.lastChange ?? 'none yet'}</td>
               <td data-v={r.watchedSince ?? ''}>{r.watchedSince ?? 'unknown'}</td>
-              <td data-v={r.lines}>{r.lines}</td>
             </tr>
           ))
         }
@@ -93,7 +89,7 @@ const rows = data.repos
             lastKey = key;
           }
           const rows = [...tbody.rows];
-          const idx = { repo: 0, tags: 1, last: 2, since: 3, lines: 4 }[key];
+          const idx = { repo: 0, tags: 1, checks: 2, last: 3, since: 4 }[key];
           rows.sort((a, b) => {
             const av = a.cells[idx].getAttribute('data-v') ?? a.cells[idx].textContent;
             const bv = b.cells[idx].getAttribute('data-v') ?? b.cells[idx].textContent;
