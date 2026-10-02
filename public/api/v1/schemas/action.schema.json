@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refledger.gautamkhosla.com/api/v1/schemas/action.json",
+  "title": "Refledger API v1 action",
+  "type": "object",
+  "required": ["api_version", "repo", "canary", "tags"],
+  "properties": {
+    "api_version": { "const": "v1" },
+    "repo": { "type": "string" },
+    "canary": { "type": "boolean" },
+    "watched_since": { "type": ["string", "null"] },
+    "checks_so_far": { "type": "integer" },
+    "last_change_at": { "type": ["string", "null"] },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag", "ref", "history"],
+        "properties": {
+          "tag": { "type": "string" },
+          "ref": { "type": "string" },
+          "current": { "type": ["object", "null"] },
+          "pin_commit": { "type": ["string", "null"] },
+          "ref_type": { "type": "string" },
+          "history": { "type": "array" }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -3,7 +3,6 @@
  * of LOG-FORMAT.md chain and head checks, beside the Rust signer and verify crates.
  */
 
-import { createPublicKey, verify as nodeVerify } from 'node:crypto';
 import { canonicalJson } from './canonical';
 import { entryHash, hexToBytes, keyId } from './hash';
 
@@ -192,6 +191,7 @@ export async function verifyEd25519(
   const spki = new Uint8Array(ED25519_SPKI_PREFIX.length + pk.length);
   spki.set(ED25519_SPKI_PREFIX, 0);
   spki.set(pk, ED25519_SPKI_PREFIX.length);
+  const { createPublicKey, verify: nodeVerify } = await import('node:crypto');
   const keyObject = createPublicKey({
     key: Buffer.from(spki),
     format: 'der',
@@ -376,18 +376,5 @@ export async function verifyHeadSignature(
 }
 
 export function ed25519Available(): boolean {
-  try {
-    if (typeof globalThis.crypto?.subtle?.importKey === 'function') return true;
-    createPublicKey({
-      key: Buffer.concat([
-        Buffer.from(ED25519_SPKI_PREFIX),
-        Buffer.alloc(32),
-      ]),
-      format: 'der',
-      type: 'spki',
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return typeof globalThis.crypto?.subtle?.importKey === 'function';
 }

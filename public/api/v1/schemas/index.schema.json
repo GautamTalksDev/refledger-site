@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refledger.gautamkhosla.com/api/v1/schemas/index.json",
+  "title": "Refledger API v1 index",
+  "type": "object",
+  "required": [
+    "api_version",
+    "build_time",
+    "ledger_tip_seq",
+    "public_key",
+    "population",
+    "genesis_at",
+    "chain_length"
+  ],
+  "properties": {
+    "api_version": { "const": "v1" },
+    "build_time": { "type": "string" },
+    "ledger_tip_seq": { "type": "integer" },
+    "last_seal_date": { "type": ["string", "null"] },
+    "public_key": { "type": "string" },
+    "population": {
+      "type": "object",
+      "required": ["action_count", "repository_count", "canary_repo"],
+      "properties": {
+        "action_count": { "type": "integer" },
+        "repository_count": { "type": "integer" },
+        "canary_repo": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "genesis_at": { "type": "string" },
+    "chain_length": { "type": "integer" }
+  },
+  "additionalProperties": false
+}

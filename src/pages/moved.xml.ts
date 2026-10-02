@@ -13,11 +13,11 @@ export async function GET() {
   const items = events
     .map(
       (ev) => `  <item>
-    <title>${escape(`${ev.event}: ${ev.repo} ${ev.tag}`)}</title>
+    <title>${escape(`${ev.whatChanged ?? ev.event}: ${ev.repo} ${ev.tag}`)}</title>
     <link>${site}/e/${ev.seq}</link>
     <guid isPermaLink="true">${site}/e/${ev.seq}</guid>
     <pubDate>${new Date(ev.recorded_at).toUTCString()}</pubDate>
-    <description>${escape(`Recorded ${ev.event} of ${ev.repo} tag ${ev.tag} at ${ev.recorded_at} (seq ${ev.seq}).`)}</description>
+    <description>${escape(`${ev.whatChanged ?? ev.event} of ${ev.repo} tag ${ev.tag} (${ev.fromToText ?? ''}) at ${ev.recorded_at} (seq ${ev.seq}).`)}</description>
   </item>`,
     )
     .join('\n');

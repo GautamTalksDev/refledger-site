@@ -2,16 +2,29 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import LookupForm from '../components/LookupForm.astro';
 import TraceWall from '../components/TraceWall.astro';
+import ScrollStory from '../components/ScrollStory.astro';
+import WallScrubber from '../components/WallScrubber.astro';
 import {
   ecosystemSentence,
   getSiteData,
   movedInLastDays,
   shortSha,
 } from '../data';
+import { describeWhatChanged, describeFromTo } from '../lib/what-changed';
+import { listAtDates } from '../lib/api-v1';
 
 const data = getSiteData();
+const atDates = listAtDates(data);
 const recent = movedInLastDays(7, true);
 const canary = data.reposByName.get('GautamTalksDev/canary') ?? null;
+const CANARY = 'GautamTalksDev/canary';
+const watchedKeys = data.watched.filter(
+  (w) => w.active && w.repo !== CANARY,
+);
+const actionCount = new Set(
+  watchedKeys.map((w) => `${w.repo}#${w.path ?? ''}`),
+).size;
+const repoCount = new Set(watchedKeys.map((w) => w.repo)).size;
 const watchedNames = data.repos.filter((r) => !r.canary).map((r) => r.repo);
 const sentence = ecosystemSentence();
 const rekorUrl = data.latestRekor
@@ -28,13 +41,6 @@ function formatWhen(iso: string): string {
   return `${day} ${mon}, ${hh}:${mm}`;
 }
 
-function whatChanged(ev: (typeof recent)[number]): string {
-  if (ev.event === 'deletion') return 'Tag deleted';
-  if (ev.event === 'recreation') return 'Deleted tag came back, pointing somewhere new';
-  if (ev.classification === 'content_change') return 'Code changed under an exact tag';
-  return 'Tag tip moved';
-}
-
 function severityLabel(s?: string): string {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -43,14 +49,27 @@ function severityLabel(s?: string): string {
 function formatSealDate(isoDate: string | null): string {
   if (!isoDate) return 'none yet';
   const [y, m, d] = isoDate.split('-').map(Number);
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
   return `${d} ${months[m - 1]}`;
 }
 
-// Group correlation members shown as one row when they share a batch
 const corrSeqs = new Set(data.correlationCaptions.flatMap((c) => c.member_seqs));
 const shownCorr = new Set<number>();
-const movedRows: {
+
+type MovedRow = {
   when: string;
   tags: string;
   repo: string;
@@ -60,46 +79,75 @@ const movedRows: {
   severity: string;
   high: boolean;
   href: string;
-}[] = [];
+  kind: 'event' | 'correlation' | 'canary-summary';
+};
+
+const ecosystemRows: MovedRow[] = [];
+const canaryEvents = recent.filter((e) => e.isCanary);
 
 for (const ev of recent) {
+  if (ev.isCanary) continue;
   const corr = data.correlationCaptions.find((c) => c.member_seqs.includes(ev.seq));
   if (corr && !shownCorr.has(corr.seq)) {
     shownCorr.add(corr.seq);
     const members = recent.filter((e) => corr.member_seqs.includes(e.seq));
-    const from = members[0]?.fromCommit;
-    const to = members[0]?.toCommit;
-    movedRows.push({
+    const sample = members[0];
+    const fromTo = describeFromTo({
+      event: 'move',
+      fromCommit: sample?.fromCommit,
+      toCommit: sample?.toCommit,
+      fromTarget: sample?.fromTarget,
+      toTarget: sample?.toTarget,
+    });
+    ecosystemRows.push({
       when: formatWhen(corr.at),
       tags: corr.tags.join(', '),
       repo: corr.repo || ev.repo,
-      canary: true,
-      what: `${corr.tags.length === 3 ? 'Three' : corr.tags.length} tags moved together`,
-      fromTo: `${shortSha(from)} → ${shortSha(to)}`,
+      canary: false,
+      what: describeWhatChanged({
+        event: 'correlation',
+        correlationTagCount: corr.tags.length,
+      }),
+      fromTo: fromTo.text,
       severity: severityLabel(members[0]?.severity) || 'High',
       high: members.some((m) => m.severity === 'high'),
       href: `/e/${corr.seq}`,
+      kind: 'correlation',
     });
     continue;
   }
-  if (corrSeqs.has(ev.seq) && shownCorr.size) continue;
   if (corrSeqs.has(ev.seq)) continue;
 
-  movedRows.push({
+  ecosystemRows.push({
     when: formatWhen(ev.recorded_at),
     tags: ev.tag,
     repo: ev.repo,
-    canary: ev.isCanary,
-    what: whatChanged(ev),
-    fromTo:
-      ev.event === 'deletion'
-        ? `${shortSha(ev.fromCommit)} → gone`
-        : `${shortSha(ev.fromCommit)} → ${shortSha(ev.toCommit)}`,
+    canary: false,
+    what: ev.whatChanged ?? 'Tag tip moved',
+    fromTo: ev.fromToText ?? `${shortSha(ev.fromCommit)} → ${shortSha(ev.toCommit)}`,
     severity: severityLabel(ev.severity),
     high: ev.severity === 'high',
     href: `/e/${ev.seq}`,
+    kind: 'event',
   });
 }
+
+const canaryCount = canaryEvents.length;
+const canarySummary: MovedRow | null =
+  canaryCount > 0
+    ? {
+        when: formatWhen(canaryEvents[0].recorded_at),
+        tags: '',
+        repo: 'GautamTalksDev/canary',
+        canary: true,
+        what: `${canaryCount} canary test move${canaryCount === 1 ? '' : 's'} this week`,
+        fromTo: '',
+        severity: '',
+        high: false,
+        href: '/moved?canary=1',
+        kind: 'canary-summary',
+      }
+    : null;
 ---
 
 <BaseLayout
@@ -107,24 +155,37 @@ for (const ev of recent) {
   description="A tag is a pointer. We write down where it points. A public, signed record of GitHub Action tag movements."
 >
   <Fragment slot="head">
-    <script type="application/ld+json" set:html={JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'Dataset',
-      name: 'Refledger',
-      description:
-        'A public, signed, hash-chained record of what GitHub Action tags pointed at, and when they moved.',
-      url: 'https://refledger.gautamkhosla.com',
-      license: 'https://www.apache.org/licenses/LICENSE-2.0',
-      creator: { '@type': 'Person', name: 'Gautam Khosla' },
-    })} />
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Dataset',
+        name: 'Refledger',
+        description:
+          'A public, signed, hash-chained record of what GitHub Action tags pointed at, and when they moved.',
+        url: 'https://refledger.gautamkhosla.com',
+        license: 'https://www.apache.org/licenses/LICENSE-2.0',
+        creator: { '@type': 'Person', name: 'Gautam Khosla' },
+      })}
+    />
   </Fragment>
 
-  <section class="hero" aria-labelledby="hero-title">
+  <section class="hero hero-night" aria-labelledby="hero-title">
     <div class="hero-copy">
       <h1 id="hero-title">A tag is a pointer. We write down where it points.</h1>
       <p class="hero-sub">
         Refledger checks every watched GitHub Action tag every five minutes and keeps a signed,
         public record of each move. You can verify all of it yourself, without trusting us.
+      </p>
+      <p class="scope-sentence">
+        Watching {actionCount} GitHub Actions from {repoCount} repositories, chosen for heavy use
+        and past incidents, plus everything they depend on.
+        <a href="/population/METHOD">How we chose them</a>
+      </p>
+      <p class="status-chip" role="status">
+        Ledger as of {
+          new Date(data.buildTime).toISOString().slice(11, 16)
+        } UTC
       </p>
     </div>
     <LookupForm />
@@ -133,17 +194,22 @@ for (const ev of recent) {
     </datalist>
   </section>
 
-  <TraceWall
-    buildTime={data.buildTime}
-    genesisAt={data.genesisAt}
-    wallRepos={data.wallDefaultRepos}
-    allRepos={data.repos}
-    canary={canary}
-    events={data.traceEvents}
-    seals={data.seals}
-    gaps={data.gapBands}
-    correlations={data.correlationCaptions}
-  />
+  <div class="night-zone">
+    <div class="site-shell">
+      <TraceWall
+        buildTime={data.buildTime}
+        genesisAt={data.genesisAt}
+        wallRepos={data.wallDefaultRepos}
+        allRepos={data.repos}
+        canary={canary}
+        events={data.traceEvents}
+        seals={data.seals}
+        gaps={data.gapBands}
+        correlations={data.correlationCaptions}
+      />
+      <WallScrubber buildTime={data.buildTime} dates={atDates} />
+    </div>
+  </div>
 
   <p class="wall-sentence">
     {sentence}
@@ -154,12 +220,21 @@ for (const ev of recent) {
     }
   </p>
 
+  <ScrollStory />
+
   <div class="home-split">
     <section id="moved" class="moved-col" aria-labelledby="moved-title">
       <div class="moved-head">
         <h2 id="moved-title">Moved in the last 7 days</h2>
         <a href="/moved.xml">Subscribe with RSS</a>
       </div>
+      {
+        ecosystemRows.length === 0 && (
+          <p class="table-note" style="margin-bottom: 12px">
+            No ecosystem tags moved this week.
+          </p>
+        )
+      }
       <div class="table-wrap">
         <table class="data">
           <thead>
@@ -173,28 +248,44 @@ for (const ev of recent) {
           </thead>
           <tbody>
             {
-              movedRows.length === 0 ? (
+              ecosystemRows.map((row) => (
+                <tr>
+                  <td style="white-space: nowrap">{row.when}</td>
+                  <td>
+                    <div class="mono">{row.tags}</div>
+                    <div class="tag-cell-meta">
+                      <a href={`/a/${row.repo}`}>{row.repo}</a>
+                    </div>
+                  </td>
+                  <td>
+                    <a href={row.href}>{row.what}</a>
+                  </td>
+                  <td class="mono" style="white-space: nowrap">{row.fromTo}</td>
+                  <td class={row.high ? 'severity-high' : undefined}>{row.severity}</td>
+                </tr>
+              ))
+            }
+            {
+              canarySummary && (
+                <tr>
+                  <td style="white-space: nowrap">{canarySummary.when}</td>
+                  <td>
+                    <div class="tag-cell-meta">
+                      <span class="pill canary">Canary</span>
+                      <a href={`/a/${canarySummary.repo}`}>{canarySummary.repo}</a>
+                    </div>
+                  </td>
+                  <td colspan="3">
+                    <a href={canarySummary.href}>{canarySummary.what}</a>
+                  </td>
+                </tr>
+              )
+            }
+            {
+              ecosystemRows.length === 0 && !canarySummary && (
                 <tr>
                   <td colspan="5">No tag movements in the last 7 days.</td>
                 </tr>
-              ) : (
-                movedRows.map((row) => (
-                  <tr>
-                    <td style="white-space: nowrap">{row.when}</td>
-                    <td>
-                      <div class="mono">{row.tags}</div>
-                      <div class="tag-cell-meta">
-                        {row.canary && <span class="pill canary">Canary</span>}
-                        <a href={`/a/${row.repo}`}>{row.repo}</a>
-                      </div>
-                    </td>
-                    <td>
-                      <a href={row.href}>{row.what}</a>
-                    </td>
-                    <td class="mono" style="white-space: nowrap">{row.fromTo}</td>
-                    <td class={row.high ? 'severity-high' : undefined}>{row.severity}</td>
-                  </tr>
-                ))
               )
             }
           </tbody>
@@ -223,7 +314,9 @@ for (const ev of recent) {
           <dd class="mono">
             {
               data.latestRekor && rekorUrl ? (
-                <a href={rekorUrl} style="color: #EDF0EE">Entry {data.latestRekor.log_index}</a>
+                <a href={rekorUrl} style="color: #EDF0EE">
+                  Entry {data.latestRekor.log_index}
+                </a>
               ) : (
                 'none yet'
               )

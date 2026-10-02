@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getSiteData } from '../../data';
+
+const data = getSiteData();
+const md = data.methodMd || 'Population methodology is not available in this build.';
+---
+
+<BaseLayout
+  title="Population method · Refledger"
+  description="How Refledger chooses which GitHub Actions to watch."
+  canonicalPath="/population/METHOD"
+>
+  <h1>How we choose what to watch</h1>
+  <p class="lede">
+    Copied from the signed population METHOD.md on the ledger source. Facts about the seed set and
+    its transitive closure.
+  </p>
+  <div class="prose method-md">
+    <pre class="method-pre">{md}</pre>
+  </div>
+</BaseLayout>

@@ -1,8 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import LookupForm from '../../components/LookupForm.astro';
 import { canonicalJson } from '../../lib/canonical';
-import { getSiteData, displayClassification } from '../../data';
+import { getSiteData, effectiveDisplayClassification } from '../../data';
+import { whatChangedFromEntry } from '../../lib/what-changed';
 
 export function getStaticPaths() {
   const data = getSiteData();
@@ -17,9 +17,15 @@ const data = getSiteData();
 const entry = data.entriesBySeq.get(seq)!;
 const { entry_hash, ...withoutHash } = entry as typeof entry & { entry_hash: string };
 const rawCanonical = canonicalJson(withoutHash);
-const classification = displayClassification(entry);
+const correction = data.correctionsBySeq.get(seq) ?? null;
+const display = whatChangedFromEntry(entry, correction);
+const classification = effectiveDisplayClassification(entry, correction);
 const prev = seq > 0 ? seq - 1 : null;
 const next = seq + 1 < data.chainLength ? seq + 1 : null;
+
+function sanitizeCopy(s: string): string {
+  return s.replace(/\u2014/g, ',').replace(/\u2013/g, '-').replace(/--/g, ', ');
+}
 ---
 
 <BaseLayout
@@ -32,6 +38,37 @@ const next = seq + 1 < data.chainLength ? seq + 1 : null;
   </p>
   <h1>Entry seq {seq}</h1>
   <p class="lede">{entry.event} · {entry.recorded_at}</p>
+
+  {
+    correction && (
+      <aside class="correction-note" role="note">
+        <p>
+          This entry has a signed correction at{' '}
+          <a href={`/e/${correction.seq}`}>seq {correction.seq}</a>. Display uses the corrected
+          facts; the original row stays in the chain for verification.
+        </p>
+        <p class="muted">{sanitizeCopy(correction.reason)}</p>
+      </aside>
+    )
+  }
+
+  {
+    (entry.event === 'move' ||
+      entry.event === 'deletion' ||
+      entry.event === 'recreation') && (
+      <p>
+        <strong>What changed:</strong> {display.phrase}
+        {
+          display.fromTo.text && (
+            <>
+              {' '}
+              (<span class="mono">{display.fromTo.text}</span>)
+            </>
+          )
+        }
+      </p>
+    )
+  }
 
   <p class="row">
     {
@@ -62,7 +99,11 @@ const next = seq + 1 < data.chainLength ? seq + 1 : null;
                 <tr>
                   <th scope="row">{k}</th>
                   <td>
-                    <code class="mono">{typeof v === 'string' ? v : JSON.stringify(v)}</code>
+                    <code class="mono"
+                      >{typeof v === 'string'
+                        ? sanitizeCopy(v)
+                        : sanitizeCopy(JSON.stringify(v))}</code
+                    >
                   </td>
                 </tr>
               );
@@ -78,7 +119,20 @@ const next = seq + 1 < data.chainLength ? seq + 1 : null;
         </p>
       )
     }
-    {classification && <p class="muted">Displayed classification: {classification}</p>}
+    {
+      classification && (
+        <p class="muted">
+          Displayed classification: {classification}
+          {
+            correction &&
+              'classification' in entry &&
+              entry.classification !== classification && (
+                <> (signed row had {(entry as { classification: string }).classification})</>
+              )
+          }
+        </p>
+      )
+    }
   </section>
 
   <section class="section">

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { canonicalJson } from './canonical';
 
 function toBytes(input: Uint8Array | string): Uint8Array {
@@ -16,13 +15,21 @@ function bytesToHex(bytes: Uint8Array): string {
   return hex;
 }
 
+async function nodeHash(
+  algo: 'sha256' | 'sha512',
+  bytes: Uint8Array,
+): Promise<string> {
+  const { createHash } = await import('node:crypto');
+  return createHash(algo).update(Buffer.from(bytes)).digest('hex');
+}
+
 export async function sha256Hex(input: Uint8Array | string): Promise<string> {
   const bytes = toBytes(input);
   if (globalThis.crypto?.subtle) {
     const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
     return bytesToHex(new Uint8Array(digest));
   }
-  return createHash('sha256').update(Buffer.from(bytes)).digest('hex');
+  return nodeHash('sha256', bytes);
 }
 
 export async function sha512Hex(input: Uint8Array | string): Promise<string> {
@@ -31,7 +38,7 @@ export async function sha512Hex(input: Uint8Array | string): Promise<string> {
     const digest = await globalThis.crypto.subtle.digest('SHA-512', bytes);
     return bytesToHex(new Uint8Array(digest));
   }
-  return createHash('sha512').update(Buffer.from(bytes)).digest('hex');
+  return nodeHash('sha512', bytes);
 }
 
 export async function entryHash(entryWithoutHash: object): Promise<string> {
@@ -41,12 +48,13 @@ export async function entryHash(entryWithoutHash: object): Promise<string> {
 }
 
 export function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) {
-    throw new Error(`odd hex length: ${hex.length}`);
+  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
+  if (clean.length % 2 !== 0) {
+    throw new Error(`odd hex length: ${clean.length}`);
   }
-  const out = new Uint8Array(hex.length / 2);
+  const out = new Uint8Array(clean.length / 2);
   for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   }
   return out;
 }

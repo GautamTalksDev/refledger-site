@@ -104,8 +104,9 @@ export function buildWallModel(opts: {
     gaps: opts.gaps.filter((g) => {
       if (g.end < start) return false;
       const dur = new Date(g.end).getTime() - new Date(g.start).getTime();
-      // Instantaneous lag markers clutter the wall; keep lasting gaps and failures.
-      return dur >= 60_000 || g.kind === 'silence' || g.kind === 'PollerDown' || g.kind === 'failed';
+      // Instantaneous markers clutter the wall; keep lasting bands and failures.
+      if (g.source === 'inferred') return dur >= 60_000 || g.kind === 'silence';
+      return dur >= 60_000 || g.kind === 'PollerDown' || g.kind === 'failed';
     }),
     hiddenUnchanged,
     correlations: opts.correlations.filter((c) => c.at >= start),
@@ -172,6 +173,10 @@ export function renderWallSvg(model: WallModel): string {
       <rect width="6" height="6" fill="var(--surface, #F7F9F8)"/>
       <line x1="0" y1="0" x2="0" y2="6" stroke="#C9D1CD" stroke-width="2"/>
     </pattern>
+    <pattern id="noChecksDots" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="transparent"/>
+      <circle cx="2" cy="2" r="1.1" fill="#9AA6A2" fill-opacity="0.55"/>
+    </pattern>
     <style>
       .wl { stroke: var(--ink, #262B30); stroke-width: 1.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
       .wj { stroke: var(--accent, #2347C8); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -185,6 +190,12 @@ export function renderWallSvg(model: WallModel): string {
       }
       @keyframes wallDraw { to { stroke-dashoffset: 0; } }
       .jog-hit:focus { outline: 2px solid var(--ink, #262B30); outline-offset: 2px; }
+      .wj { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent, #2347C8) 45%, transparent)); }
+      .now-pulse { animation: nowPulse 2.8s ease-in-out infinite; }
+      @keyframes nowPulse { 50% { opacity: 0.55; } }
+      @media (prefers-reduced-motion: reduce) {
+        .now-pulse { animation: none; }
+      }
     </style>
   </defs>`);
 
@@ -205,7 +216,7 @@ export function renderWallSvg(model: WallModel): string {
     );
   }
   parts.push(
-    `<text x="${nowX}" y="26" text-anchor="end" fill="var(--ink, #262B30)" font-weight="700">Now</text></g>`,
+    `<text x="${nowX}" y="26" text-anchor="end" fill="var(--ink, #262B30)" font-weight="700" class="now-pulse">Now</text></g>`,
   );
   parts.push(
     `<line x1="${padL}" y1="38" x2="${nowX}" y2="38" stroke="var(--grid, #D3DAD6)"/>`,
@@ -234,41 +245,34 @@ export function renderWallSvg(model: WallModel): string {
     const x1 = xFor(g.start, startMs, endMs, padL, plotW);
     const x2 = xFor(g.end, startMs, endMs, padL, plotW);
     const w = Math.max(2, x2 - x1);
+    const fill =
+      g.source === 'inferred' ? 'url(#noChecksDots)' : 'url(#gapHatch)';
+    const stroke =
+      g.source === 'inferred'
+        ? ` stroke="#9AA6A2" stroke-width="1" stroke-dasharray="3 3" fill-opacity="0.35"`
+        : '';
     const affectsAll =
       g.repos.length === 0 ||
       model.repos.every((r) => g.repos.includes(r.repo));
     if (affectsAll) {
       parts.push(
-        `<rect x="${x1.toFixed(1)}" y="${lineTop}" width="${w.toFixed(1)}" height="${lineBottom - lineTop}" fill="url(#gapHatch)"/>`,
+        `<rect x="${x1.toFixed(1)}" y="${lineTop}" width="${w.toFixed(1)}" height="${lineBottom - lineTop}" fill="${fill}"${stroke}/>`,
       );
       parts.push(
         `<text x="${(x1 + w / 2).toFixed(1)}" y="${lineTop + 14}" text-anchor="middle" class="waxis" font-size="10">${esc(g.label)}</text>`,
       );
-    } else {
-      // Hatch only affected rows
-      let yi = 0;
+    } else if (g.source === 'recorded') {
+      // Hatch only affected rows for recorded gaps
       for (const row of rows) {
+        if (!g.repos.includes(row.repo)) continue;
         const y = row.isCanaryTag
-          ? ecoBottom + canaryHeader + (yi - ecoCount) * rowH
-          : padT + yi * rowH;
-        if (!row.isCanaryTag) {
-          if (g.repos.includes(row.repo)) {
-            parts.push(
-              `<rect x="${x1.toFixed(1)}" y="${(y - 8).toFixed(1)}" width="${w.toFixed(1)}" height="16" fill="url(#gapHatch)"/>`,
-            );
-          }
-          yi++;
-        } else {
-          if (g.repos.includes(row.repo)) {
-            const cy =
-              ecoBottom +
-              canaryHeader +
-              rows.filter((r) => r.isCanaryTag).indexOf(row) * rowH;
-            parts.push(
-              `<rect x="${x1.toFixed(1)}" y="${(cy - 8).toFixed(1)}" width="${w.toFixed(1)}" height="16" fill="url(#gapHatch)"/>`,
-            );
-          }
-        }
+          ? ecoBottom +
+            canaryHeader +
+            rows.filter((r) => r.isCanaryTag).indexOf(row) * rowH
+          : padT + rows.filter((r) => !r.isCanaryTag).indexOf(row) * rowH;
+        parts.push(
+          `<rect x="${x1.toFixed(1)}" y="${(y - 8).toFixed(1)}" width="${w.toFixed(1)}" height="16" fill="${fill}"/>`,
+        );
       }
     }
   }
@@ -467,12 +471,18 @@ export function renderWallSvg(model: WallModel): string {
 }
 
 function tooltipFor(ev: TraceEvent): string {
+  // Lazy import avoided: keep tooltip assembly inline using fields already on TraceEvent
   const when = ev.recorded_at.replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
-  const from = ev.fromCommit ? ev.fromCommit.slice(0, 7) : '?';
-  const to =
-    ev.event === 'deletion' ? 'gone' : ev.toCommit ? ev.toCommit.slice(0, 7) : '?';
+  const phrase = ev.whatChanged ?? ev.event;
+  const fromTo = ev.fromToText ??
+    (() => {
+      const from = ev.fromCommit ? ev.fromCommit.slice(0, 7) : '?';
+      const to =
+        ev.event === 'deletion' ? 'gone' : ev.toCommit ? ev.toCommit.slice(0, 7) : '?';
+      return `${from} → ${to}`;
+    })();
   const sev = ev.severity ? `; ${ev.severity}` : '';
-  return `${ev.tag}: ${from} to ${to}; ${when}${sev}`;
+  return `${ev.tag}: ${phrase}; ${fromTo}; ${when}${sev}`;
 }
 
 function wallAriaLabel(model: WallModel): string {

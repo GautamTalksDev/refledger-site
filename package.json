@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "check:copy": "node scripts/check-copy-rules.mjs",
     "check:size": "node scripts/check-js-size.mjs",
+    "check:pins": "node scripts/check-action-pins.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -24,12 +25,12 @@
     "esbuild": true
   },
   "devDependencies": {
-    "vitest": "5.0.3",
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
     "axe-core": "4.13.0",
-    "@axe-core/playwright": "4.13.0",
     "sharp": "0.35.5",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vitest": "5.0.3"
   },
   "private": true
 }

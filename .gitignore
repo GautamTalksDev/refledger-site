@@ -23,3 +23,4 @@ playwright/.cache/
 # Generated at build (npm run prebuild)
 public/verify/
 public/og/
+fontsource-variable-schibsted-grotesk-*.tgz

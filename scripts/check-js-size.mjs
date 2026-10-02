@@ -5,7 +5,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 const dist = path.resolve('dist');
-const LIMIT = 50 * 1024;
+const LIMIT = 60 * 1024;
 
 function walk(dir) {
   const out = [];

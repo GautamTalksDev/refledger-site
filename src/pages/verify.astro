@@ -28,8 +28,10 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
     <div class="row">
       <button type="button" class="primary" id="verify-btn">Verify the whole ledger</button>
     </div>
+    <div id="verify-theatre" class="verify-chain" aria-hidden="true"></div>
     <p id="verify-status" class="muted" aria-live="polite" style="margin-top: 1rem;"></p>
     <pre id="verify-out" class="pre-block" hidden><code></code></pre>
+    <p id="verify-share" class="mono" hidden></p>
     <noscript>
       <p>
         JavaScript is required for the in-browser verifier. Use the CLI method below, which needs
@@ -54,6 +56,8 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
     const status = document.getElementById('verify-status');
     const out = document.getElementById('verify-out');
     const code = out?.querySelector('code');
+    const theatre = document.getElementById('verify-theatre');
+    const share = document.getElementById('verify-share');
 
     async function loadJsonl(url: string): Promise<any[]> {
       const res = await fetch(url);
@@ -71,6 +75,11 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
       btn.setAttribute('disabled', 'true');
       status.textContent = 'Loading published log files…';
       out.hidden = true;
+      if (share) share.hidden = true;
+      if (theatre) {
+        theatre.innerHTML = '';
+        theatre.setAttribute('aria-hidden', 'false');
+      }
 
       if (!ed25519Available()) {
         status.textContent =
@@ -87,6 +96,16 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
         const entries = entryLists.flat().sort((a, b) => a.seq - b.seq);
         const heads = await loadJsonl(manifest.headsFile);
 
+        if (theatre) {
+          const n = Math.min(entries.length, 120);
+          for (let i = 0; i < n; i++) {
+            const b = document.createElement('div');
+            b.className = 'verify-block';
+            b.title = `seq ${entries[i].seq}`;
+            theatre.appendChild(b);
+          }
+        }
+
         status.textContent = `Checking ${entries.length} entries…`;
         const result = await verifyLedger({
           entries,
@@ -94,16 +113,39 @@ cargo run --locked --release -p refledger-verify -- data/log --strict \\
           pinnedPubkey: PINNED_PUBKEY,
           onProgress: (p) => {
             status.textContent = `${p.phase}: ${p.done}/${p.total}`;
+            if (theatre && p.phase === 'chain') {
+              const blocks = theatre.querySelectorAll('.verify-block');
+              if (p.done > 0 && p.done <= blocks.length) {
+                blocks[p.done - 1]?.classList.add('is-ok');
+              }
+            }
           },
         });
+
+        if (theatre && !result.ok) {
+          theatre.querySelectorAll('.verify-block').forEach((b) => {
+            b.classList.remove('is-ok');
+            b.classList.add('is-fail');
+          });
+        } else if (theatre && result.ok) {
+          theatre.querySelectorAll('.verify-block').forEach((b) => b.classList.add('is-ok'));
+        }
 
         code.textContent = result.lines.join('\n');
         out.hidden = false;
         status.textContent = result.ok
           ? 'All checks ran. Verdict below.'
           : 'Verification failed. See details below.';
+        if (share && result.ok) {
+          const hhmm = new Date().toISOString().slice(11, 16);
+          share.textContent = `Verified Refledger entries 0 to ${entries.length - 1} against key ${PINNED_PUBKEY.slice(0, 8)} at ${hhmm} UTC`;
+          share.hidden = false;
+        }
       } catch (err) {
         status.textContent = `Could not complete verification: ${(err as Error).message}`;
+        if (theatre) {
+          theatre.querySelectorAll('.verify-block').forEach((b) => b.classList.add('is-fail'));
+        }
       } finally {
         btn.removeAttribute('disabled');
       }

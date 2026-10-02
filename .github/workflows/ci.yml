@@ -15,7 +15,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -46,6 +46,9 @@ jobs:
       - name: Copy rules
         run: npm run check:copy
 
+      - name: Action pin SHAs match version comments
+        run: npm run check:pins
+
       - name: JS size budget
         run: npm run check:size
 
@@ -54,3 +57,30 @@ jobs:
 
       - name: Playwright smoke
         run: npm run test:e2e
+
+      - name: Visual screenshots
+        run: SCREEN_DIR=design/screens/ci npx playwright test tests/e2e/visual.spec.ts
+
+      - name: Lighthouse home
+        run: |
+          npx astro preview --host 127.0.0.1 --port 4321 &
+          PREVIEW_PID=$!
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4321/ >/dev/null; then break; fi
+            sleep 1
+          done
+          npx --yes lighthouse@12.8.2 http://127.0.0.1:4321/ \
+            --chrome-flags="--headless --no-sandbox" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --quiet \
+            --output=json \
+            --output-path=./lh-home.json
+          node -e "
+            const r=require('./lh-home.json');
+            const cats=r.categories;
+            const scores=Object.fromEntries(Object.entries(cats).map(([k,v])=>[k, Math.round(v.score*100)]));
+            console.log('Lighthouse', scores);
+            const bad=Object.entries(scores).filter(([,s])=>s<95);
+            if (bad.length) { console.error('Below 95:', bad); process.exit(1); }
+          "
+          kill $PREVIEW_PID || true

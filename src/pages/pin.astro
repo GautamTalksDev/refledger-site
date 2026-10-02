@@ -1,0 +1,317 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Pin my workflow · Refledger"
+  description="Paste a workflow YAML. Rewrite watched actions to full SHAs using the public ledger. Nothing is uploaded."
+  canonicalPath="/pin"
+>
+  <h1>Pin my workflow</h1>
+  <p class="lede">
+    Runs entirely in your browser. Nothing is uploaded. Watched actions are rewritten to a full
+    commit SHA with a version comment from the public ledger.
+  </p>
+
+  <div id="pin-app" class="pin-app" data-young-hours="72">
+    <label class="pin-drop" for="pin-file">
+      <span class="pin-drop-title">Drop a workflow YAML here</span>
+      <span class="muted">or paste below. .yml and .yaml only.</span>
+      <input id="pin-file" type="file" accept=".yml,.yaml,text/yaml,text/plain" hidden />
+    </label>
+
+    <div class="pin-editor-wrap">
+      <div class="pin-gutter" id="pin-gutter" aria-hidden="true">1</div>
+      <textarea
+        id="pin-input"
+        class="pin-editor mono"
+        rows="18"
+        spellcheck="false"
+        placeholder={"name: ci\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4"}
+      ></textarea>
+    </div>
+
+    <div class="row" style="margin-top: 16px; gap: 12px;">
+      <button type="button" id="pin-run" class="btn-primary">Pin from ledger</button>
+      <button type="button" id="pin-copy" class="btn-secondary" disabled>Copy rewritten YAML</button>
+    </div>
+
+    <p id="pin-summary" class="muted" style="margin-top: 16px" aria-live="polite"></p>
+
+    <div id="pin-results" class="pin-results" hidden>
+      <h2>Results</h2>
+      <ul id="pin-list" class="pin-list"></ul>
+    </div>
+
+    <div id="pin-diff-wrap" class="pin-diff-wrap" hidden>
+      <h2>Diff</h2>
+      <div class="pin-diff" id="pin-diff"></div>
+    </div>
+
+    <div id="pin-out-wrap" hidden>
+      <h2>Rewritten YAML</h2>
+      <pre class="pre-block"><code id="pin-out" class="mono"></code></pre>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import {
+    analyzeWorkflow,
+    collectUses,
+    lineDiff,
+    type ActionApiLite,
+  } from '../lib/pin-workflow';
+
+  const root = document.getElementById('pin-app');
+  if (root) {
+    const input = document.getElementById('pin-input') as HTMLTextAreaElement;
+    const gutter = document.getElementById('pin-gutter')!;
+    const file = document.getElementById('pin-file') as HTMLInputElement;
+    const runBtn = document.getElementById('pin-run')!;
+    const copyBtn = document.getElementById('pin-copy') as HTMLButtonElement;
+    const summary = document.getElementById('pin-summary')!;
+    const list = document.getElementById('pin-list')!;
+    const results = document.getElementById('pin-results')!;
+    const diffWrap = document.getElementById('pin-diff-wrap')!;
+    const diffEl = document.getElementById('pin-diff')!;
+    const outWrap = document.getElementById('pin-out-wrap')!;
+    const out = document.getElementById('pin-out')!;
+    const young = Number(root.getAttribute('data-young-hours') || '72');
+    const cache = new Map<string, ActionApiLite | null>();
+
+    function syncGutter() {
+      const n = input.value.split('\n').length;
+      gutter.textContent = Array.from({ length: n }, (_, i) => String(i + 1)).join('\n');
+    }
+    input.addEventListener('input', syncGutter);
+    syncGutter();
+
+    const drop = root.querySelector('.pin-drop')!;
+    drop.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      drop.classList.add('is-drag');
+    });
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-drag'));
+    drop.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      drop.classList.remove('is-drag');
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      input.value = await f.text();
+      syncGutter();
+    });
+    file.addEventListener('change', async () => {
+      const f = file.files?.[0];
+      if (!f) return;
+      input.value = await f.text();
+      syncGutter();
+    });
+
+    async function loadAction(repo: string): Promise<ActionApiLite | null> {
+      if (cache.has(repo)) return cache.get(repo)!;
+      const res = await fetch(`/api/v1/actions/${repo}.json`);
+      if (!res.ok) {
+        cache.set(repo, null);
+        return null;
+      }
+      const a = await res.json();
+      const lite: ActionApiLite = {
+        repo: a.repo,
+        tags: (a.tags || []).map((t: any) => ({
+          tag: t.tag,
+          pin_commit: t.pin_commit,
+          current: t.current
+            ? {
+                commit_sha: t.current.commit_sha,
+                first_observed: t.current.first_observed,
+                last_observed: t.current.last_observed,
+              }
+            : null,
+          history: (t.history || []).map((h: any) => ({
+            seq: h.seq,
+            recorded_at: h.recorded_at,
+            event: h.event,
+          })),
+        })),
+      };
+      cache.set(repo, lite);
+      return lite;
+    }
+
+    let lastOut = '';
+    runBtn.addEventListener('click', async () => {
+      summary.textContent = 'Loading ledger bindings…';
+      const uses = collectUses(input.value);
+      const map = new Map<string, ActionApiLite>();
+      const repos = [
+        ...new Set(
+          uses
+            .filter((u) => u.owner && u.repo)
+            .map((u) => `${u.owner}/${u.repo}`),
+        ),
+      ];
+      await Promise.all(
+        repos.map(async (repo) => {
+          const lite = await loadAction(repo);
+          if (lite) map.set(repo, lite);
+        }),
+      );
+
+      const analysis = analyzeWorkflow(input.value, map, { youngHours: young });
+      lastOut = analysis.rewrittenYaml;
+      summary.textContent = `${analysis.summary.total} uses lines: ${analysis.summary.watched} watched, ${analysis.summary.unwatched} not watched, ${analysis.summary.rewritten} rewritten, ${analysis.summary.mismatches} version comment mismatches.`;
+      list.innerHTML = '';
+      for (const row of analysis.rows) {
+        const li = document.createElement('li');
+        const bits: string[] = [`<code class="mono">${escapeHtml(row.uses)}</code>`];
+        if (!row.watched) {
+          bits.push('not watched yet');
+          if (row.request_watch_url) {
+            bits.push(`<a href="${row.request_watch_url}">Request watch</a>`);
+          }
+        } else {
+          if (row.rewritten)
+            bits.push(`→ <code class="mono">${escapeHtml(row.rewritten)}</code>`);
+          if (row.binding_age_hours != null)
+            bits.push(`binding age ${row.binding_age_hours}h`);
+          if (row.last_move_at) bits.push(`last move ${row.last_move_at}`);
+          if (row.version_comment_mismatch)
+            bits.push('version comment does not match this SHA');
+          if (row.note) bits.push(escapeHtml(row.note));
+        }
+        li.innerHTML = bits.join(' · ');
+        list.appendChild(li);
+      }
+      results.hidden = false;
+      out.textContent = lastOut;
+      outWrap.hidden = false;
+      copyBtn.disabled = false;
+
+      const diff = lineDiff(input.value, lastOut);
+      diffEl.innerHTML = diff
+        .map((d) => {
+          const cls =
+            d.type === 'add' ? 'diff-add' : d.type === 'remove' ? 'diff-remove' : 'diff-eq';
+          return `<div class="${cls}"><code class="mono">${escapeHtml(d.text)}</code></div>`;
+        })
+        .join('');
+      diffWrap.hidden = false;
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(lastOut);
+      copyBtn.textContent = 'Copied';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy rewritten YAML';
+      }, 1500);
+    });
+  }
+
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+
+<style>
+  .pin-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 120px;
+    margin: 24px 0 16px;
+    border: 1px dashed var(--rule, #d3dad6);
+    border-radius: 16px;
+    background: var(--surface, #f7f9f8);
+    cursor: pointer;
+    padding: 24px;
+  }
+  .pin-drop.is-drag {
+    border-color: var(--accent, #2347c8);
+  }
+  .pin-drop-title {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .pin-editor-wrap {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    border: 1px solid var(--rule, #d3dad6);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--paper, #fff);
+  }
+  .pin-gutter {
+    padding: 12px 8px;
+    background: var(--surface, #f7f9f8);
+    color: var(--text-secondary, #5e6a69);
+    font-family: 'B612 Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: right;
+    user-select: none;
+    white-space: pre;
+    overflow: hidden;
+  }
+  .pin-editor {
+    width: 100%;
+    border: 0;
+    padding: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+    background: transparent;
+    color: inherit;
+  }
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: 1px solid var(--ink, #262b30);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--ink, #262b30);
+    color: var(--paper, #fff);
+  }
+  .btn-secondary {
+    background: transparent;
+  }
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .pin-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .pin-list li {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule, #e1e6e3);
+  }
+  .pin-diff {
+    font-size: 13px;
+    border: 1px solid var(--rule, #d3dad6);
+    border-radius: 12px;
+    overflow: auto;
+    max-height: 360px;
+  }
+  .diff-add {
+    background: color-mix(in srgb, #1b7f4a 12%, transparent);
+  }
+  .diff-remove {
+    background: color-mix(in srgb, #b42318 12%, transparent);
+  }
+  .diff-eq {
+    opacity: 0.7;
+  }
+</style>

@@ -1,0 +1,14 @@
+name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: reviewdog/action-actionlint@v1
+      - uses: some-org/not-watched@v1
+      - uses: ./local-action
+      - uses: docker://alpine:3.19

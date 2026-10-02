@@ -53,6 +53,8 @@ let failed = false;
 for (const file of walk(dist)) {
   // Skip raw published ledger JSONL under verify/log (not page copy).
   if (file.includes(`${path.sep}verify${path.sep}log${path.sep}`)) continue;
+  // Upstream METHOD.md may contain dashes; we host it as a transcript.
+  if (file.includes(`${path.sep}population${path.sep}METHOD`)) continue;
   const raw = fs.readFileSync(file, 'utf8');
   const text = extractCopy(raw);
   for (const { name, re } of BAD) {

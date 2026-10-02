@@ -1,5 +1,7 @@
 import type { Observation } from './types';
 
+export type GapSource = 'recorded' | 'inferred';
+
 export type GapBand = {
   start: string;
   end: string;
@@ -7,10 +9,12 @@ export type GapBand = {
   kind: string;
   /** Empty means all visible lines; otherwise only these repos. */
   repos: string[];
+  /** recorded = Skipped/Failed observations; inferred = missing checks. */
+  source: GapSource;
 };
 
 const MERGE_MS = 8 * 60 * 1000; // cluster nearby skip/fail moments
-const SILENCE_MS = 15 * 60 * 1000; // population-wide silence = poller down
+const SILENCE_MS = 15 * 60 * 1000; // population-wide silence
 
 function kindFromOutcome(o: Observation): string {
   if (o.outcome.type === 'failed') return 'failed';
@@ -25,18 +29,21 @@ function kindFromOutcome(o: Observation): string {
   return 'skipped';
 }
 
-function labelFor(kind: string): string {
-  if (kind === 'PollerDown' || kind === 'silence') return 'gap';
+/** Plain labels for recorded gaps. Never use unexplained "lag". */
+function labelForRecorded(kind: string): string {
   if (kind === 'failed') return 'failed';
   if (kind === 'budget') return 'budget';
-  if (kind === 'SchedulerLag') return 'lag';
   if (kind === 'SecondaryLimitBackoff') return 'backoff';
-  return 'gap';
+  if (kind === 'PollerDown') return 'poller down';
+  if (kind === 'SchedulerLag') return 'skipped';
+  if (kind === 'shutdown') return 'shutdown';
+  return 'skipped';
 }
 
 /**
- * Build wall gap bands from skipped/failed observations and from
- * population-wide silence (covers the 2026-10-01 enrich outage).
+ * Build wall gap bands.
+ * Recorded: Skipped and Failed observations only (hatched).
+ * Inferred: population-wide silence ("No checks seen", never hatched as recorded).
  */
 export function computeGapBands(
   observations: Observation[],
@@ -56,7 +63,6 @@ export function computeGapBands(
 
   const bands: GapBand[] = [];
 
-  // Cluster skip/fail into bands.
   type Acc = {
     start: string;
     end: string;
@@ -78,15 +84,15 @@ export function computeGapBands(
     if (gap <= MERGE_MS) {
       acc.end = e.at;
       acc.repos.add(e.repo);
-      // Prefer PollerDown / failed as the band kind when mixed.
       if (e.kind === 'PollerDown' || e.kind === 'failed') acc.kind = e.kind;
     } else {
       bands.push({
         start: acc.start,
         end: acc.end,
         kind: acc.kind,
-        label: labelFor(acc.kind),
+        label: labelForRecorded(acc.kind),
         repos: [...acc.repos],
+        source: 'recorded',
       });
       acc = {
         start: e.at,
@@ -101,12 +107,13 @@ export function computeGapBands(
       start: acc.start,
       end: acc.end,
       kind: acc.kind,
-      label: labelFor(acc.kind),
+      label: labelForRecorded(acc.kind),
       repos: [...acc.repos],
+      source: 'recorded',
     });
   }
 
-  // Population-wide silence between any consecutive observation times.
+  // Inferred: population-wide silence between consecutive observation times.
   const allTimes = [
     ...new Set(observations.map((o) => o.observed_at)),
   ].sort();
@@ -115,29 +122,39 @@ export function computeGapBands(
     const next = allTimes[i];
     const dt = new Date(next).getTime() - new Date(prev).getTime();
     if (dt >= SILENCE_MS) {
-      // Start a few minutes after last success to match recorded outage shape.
       const startMs = new Date(prev).getTime() + 60_000;
       const endMs = new Date(next).getTime();
       if (endMs - startMs < SILENCE_MS * 0.5) continue;
       const start = new Date(startMs).toISOString();
       const end = next;
-      // Avoid duplicating an existing band that already covers this window.
       const covered = bands.some(
-        (b) => b.start <= start && b.end >= end && b.repos.length === 0,
+        (b) =>
+          b.source === 'inferred' &&
+          b.start <= start &&
+          b.end >= end &&
+          b.repos.length >= allRepos.length,
       );
       if (!covered) {
         bands.push({
           start,
           end,
           kind: 'silence',
-          label: 'gap',
-          repos: [...allRepos], // all watched lines
+          label: 'No checks seen',
+          repos: [...allRepos],
+          source: 'inferred',
         });
       }
     }
   }
 
-  // Merge overlapping all-repo silence with nearby bands for display.
   bands.sort((a, b) => (a.start < b.start ? -1 : 1));
   return bands;
+}
+
+export function recordedGaps(bands: GapBand[]): GapBand[] {
+  return bands.filter((b) => b.source === 'recorded');
+}
+
+export function inferredGaps(bands: GapBand[]): GapBand[] {
+  return bands.filter((b) => b.source === 'inferred');
 }

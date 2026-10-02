@@ -7,8 +7,14 @@ import { computeGapBands, type GapBand } from './gaps';
 import { resolvePinCommit, type ObjectRecord } from './objects';
 import { fetchLedgerData } from './fetch';
 import {
+  describeFromTo,
+  describeWhatChanged,
+  effectiveClassification,
+} from '../lib/what-changed';
+import {
   CANARY_REPO,
   displayClassification,
+  effectiveDisplayClassification,
   isCanary,
   type CorrectionEntry,
   type CorrelationEntry,
@@ -48,8 +54,14 @@ export type TraceEvent = {
   recorded_at: string;
   severity?: string;
   classification?: string | null;
+  ref_form?: string | null;
+  ancestry?: string | null;
   toCommit?: string;
   fromCommit?: string;
+  fromTarget?: string;
+  toTarget?: string;
+  whatChanged?: string;
+  fromToText?: string;
   isCanary: boolean;
 };
 
@@ -72,6 +84,8 @@ export type SiteData = {
   recreations: RecreationEntry[];
   correlations: CorrelationEntry[];
   corrections: CorrectionEntry[];
+  /** Map corrects_seq → newest correction entry. */
+  correctionsBySeq: Map<number, CorrectionEntry>;
   digests: ObservationDigestEntry[];
   populationChanges: PopulationChangeEntry[];
   heads: SignedHead[];
@@ -226,6 +240,11 @@ function buildSiteData(raw: RawLedgerData): SiteData {
   const corrections = entries.filter(
     (e): e is CorrectionEntry => e.event === 'correction',
   );
+  const correctionsBySeq = new Map<number, CorrectionEntry>();
+  for (const c of corrections) {
+    const prev = correctionsBySeq.get(c.corrects_seq);
+    if (!prev || c.seq > prev.seq) correctionsBySeq.set(c.corrects_seq, c);
+  }
   const digests = entries.filter(
     (e): e is ObservationDigestEntry => e.event === 'observation_digest',
   );
@@ -367,6 +386,24 @@ function buildSiteData(raw: RawLedgerData): SiteData {
 
   const traceEvents: TraceEvent[] = [];
   for (const e of [...moves, ...deletions, ...recreations]) {
+    const correction = correctionsBySeq.get(e.seq) ?? null;
+    const fromCommit = e.from?.commit_sha ?? e.from?.target_sha;
+    const toCommit =
+      e.event === 'deletion' ? undefined : e.to?.commit_sha ?? e.to?.target_sha;
+    const fromTarget = e.from?.target_sha;
+    const toTarget = e.event === 'deletion' ? undefined : e.to?.target_sha;
+    const input = {
+      event: e.event as 'move' | 'deletion' | 'recreation',
+      classification: displayClassification(e),
+      ref_form: 'ref_form' in e ? e.ref_form : null,
+      ancestry: 'ancestry' in e ? e.ancestry : null,
+      fromCommit,
+      toCommit,
+      fromTarget,
+      toTarget,
+    };
+    const whatChanged = describeWhatChanged(input, correction);
+    const fromTo = describeFromTo(input);
     traceEvents.push({
       seq: e.seq,
       repo: e.repo,
@@ -375,9 +412,15 @@ function buildSiteData(raw: RawLedgerData): SiteData {
       event: e.event,
       recorded_at: e.recorded_at,
       severity: e.severity,
-      classification: displayClassification(e),
-      toCommit: e.to?.commit_sha ?? e.to?.target_sha,
-      fromCommit: e.from?.commit_sha ?? e.from?.target_sha,
+      classification: effectiveClassification(input, correction),
+      ref_form: input.ref_form ?? null,
+      ancestry: input.ancestry ?? null,
+      toCommit,
+      fromCommit,
+      fromTarget,
+      toTarget,
+      whatChanged,
+      fromToText: fromTo.text,
       isCanary: isCanary(e.repo),
     });
   }
@@ -457,6 +500,7 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     recreations,
     correlations,
     corrections,
+    correctionsBySeq,
     digests,
     populationChanges,
     heads,
@@ -571,4 +615,4 @@ export function ecosystemSentence(): string {
   return `${n} ecosystem tag${n === 1 ? '' : 's'} moved in the last 7 days.`;
 }
 
-export { displayClassification, isCanary, CANARY_REPO, tagFromRef };
+export { displayClassification, effectiveDisplayClassification, isCanary, CANARY_REPO, tagFromRef };

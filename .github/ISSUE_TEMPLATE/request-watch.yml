@@ -1,0 +1,20 @@
+name: Request watch
+description: Ask Refledger to watch a GitHub Action
+title: "Watch request: owner/repo"
+labels: ["watch-request"]
+body:
+  - type: input
+    id: repo
+    attributes:
+      label: Repository
+      description: owner/name of the action repository
+      placeholder: actions/checkout
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why watch it
+      description: Heavy use, past incident, or a dependency of something already watched. Facts only.
+    validations:
+      required: true

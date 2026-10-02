@@ -159,6 +159,13 @@ export type CorrectionEntry = EntryBase & {
   event: 'correction';
   corrects_seq: number;
   reason: string;
+  /** Optional structured fix from a freeze-exception Correction append. */
+  corrected_classification?: Classification;
+  corrected_severity?: Severity;
+  sets?: {
+    classification?: Classification;
+    severity?: Severity;
+  };
 };
 
 export type ObservationDigestEntry = EntryBase & {
@@ -388,6 +395,9 @@ export function isCanary(repo: string): boolean {
 /**
  * Classification is required on the wire for deletions by format convention,
  * but must never be shown (correction seq 40).
+ *
+ * Prefer {@link effectiveDisplayClassification} when Correction / same-commit
+ * overrides matter.
  */
 export function displayClassification(
   entry: LedgerEntry,
@@ -397,4 +407,29 @@ export function displayClassification(
     return entry.classification;
   }
   return null;
+}
+
+/**
+ * Display classification after Correction overlay and same-commit fact rule.
+ */
+export function effectiveDisplayClassification(
+  entry: LedgerEntry,
+  correction?: CorrectionEntry | null,
+): Classification | null {
+  if (entry.event === 'deletion') return null;
+  if (entry.event !== 'move' && entry.event !== 'recreation') return null;
+
+  const from = entry.from?.commit_sha;
+  const to = entry.to?.commit_sha;
+  if (from && to && from.toLowerCase() === to.toLowerCase()) {
+    return 'release_level_only';
+  }
+
+  const corrected =
+    correction?.corrected_classification ??
+    correction?.sets?.classification ??
+    null;
+  if (corrected) return corrected;
+
+  return entry.classification;
 }

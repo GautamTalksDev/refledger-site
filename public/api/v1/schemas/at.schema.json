@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refledger.gautamkhosla.com/api/v1/schemas/at.json",
+  "title": "Refledger API v1 at-snapshot",
+  "type": "object",
+  "required": ["api_version", "as_of", "as_of_utc", "bindings"],
+  "properties": {
+    "api_version": { "const": "v1" },
+    "as_of": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "as_of_utc": { "type": "string" },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "repo",
+          "tag",
+          "source",
+          "evidence_seqs",
+          "observation_ids"
+        ],
+        "properties": {
+          "repo": { "type": "string" },
+          "tag": { "type": "string" },
+          "target_sha": { "type": ["string", "null"] },
+          "commit_sha": { "type": ["string", "null"] },
+          "tree_sha": { "type": ["string", "null"] },
+          "ref_type": { "type": "string" },
+          "source": { "enum": ["observation", "event", "absent"] },
+          "evidence_seqs": { "type": "array", "items": { "type": "integer" } },
+          "observation_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refledger.gautamkhosla.com/api/v1/schemas/moved.json",
+  "title": "Refledger API v1 moved",
+  "type": "object",
+  "required": ["api_version", "generated_at", "events"],
+  "properties": {
+    "api_version": { "const": "v1" },
+    "generated_at": { "type": "string" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "repo",
+          "tag",
+          "event",
+          "recorded_at",
+          "what_changed",
+          "from_to",
+          "canary"
+        ],
+        "properties": {
+          "seq": { "type": "integer" },
+          "repo": { "type": "string" },
+          "tag": { "type": "string" },
+          "event": { "type": "string" },
+          "recorded_at": { "type": "string" },
+          "what_changed": { "type": "string" },
+          "from_to": { "type": "string" },
+          "canary": { "type": "boolean" },
+          "observation_window_seconds": { "type": "integer" }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

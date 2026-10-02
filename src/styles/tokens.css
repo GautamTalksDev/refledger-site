@@ -1,46 +1,102 @@
 :root {
+  /* Color */
   --paper: #edf0ee;
   --surface: #f7f9f8;
   --ink: #262b30;
   --grid: #d3dad6;
-  --rule: #e1e6e3;
+  --rule: color-mix(in srgb, var(--ink) 12%, transparent);
   --trace: #97a2a0;
   --text-secondary: #5e6a69;
   --text-body: #4a5553;
   --accent: #2347c8;
+  --graphite: #1c2024;
+  --luminous: #c9d1cd;
 
+  /* Spacing scale (only these) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* Layout */
+  --content-max: 1200px;
+  --gutter: var(--s-5);
+  --section-gap: var(--s-10);
+  --cols: 12;
+
+  /* Type */
+  --font-display: 'Schibsted Grotesk', 'B612', ui-sans-serif, sans-serif;
+  --font-body: 'Schibsted Grotesk', 'B612', ui-sans-serif, sans-serif;
+  --font-instrument: 'B612', ui-sans-serif, sans-serif;
+  --font-mono: 'B612 Mono', ui-monospace, monospace;
+
+  --fs-display-1: 72px;
+  --fs-display-2: 56px;
+  --fs-display-3: 40px;
+  --fs-h2: 32px;
+  --fs-h3: 22px;
+  --fs-body: 17px;
+  --fs-small: 14px;
+  --fs-micro: 12px;
+
+  --lh-display: 1.05;
+  --lh-body: 1.55;
+  --track-display: -0.02em;
+
+  /* Radii */
   --radius-wall: 22px;
   --radius-table: 16px;
   --radius-control: 12px;
   --radius-pill: 999px;
 
-  --font-sans: 'B612', ui-sans-serif, sans-serif;
-  --font-mono: 'B612 Mono', ui-monospace, monospace;
-
   --focus-ring: 2px solid var(--ink);
   --focus-offset: 2px;
-
-  --shadow-wall: 0 8px 28px rgba(38, 43, 48, 0.08);
+  --shadow-wall: 0 8px 28px color-mix(in srgb, var(--ink) 8%, transparent);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 180ms;
 
   color-scheme: light;
 }
 
+@media (max-width: 767px) {
+  :root {
+    --fs-display-1: 40px;
+    --fs-display-2: 32px;
+    --fs-display-3: 28px;
+    --section-gap: 80px;
+    --gutter: var(--s-4);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1c2024;
-    --surface: #23282d;
+    --paper: #161a1e;
+    --surface: #1c2024;
     --ink: #e6ebe8;
     --grid: #3a4248;
-    --rule: #343b41;
+    --rule: color-mix(in srgb, var(--ink) 14%, transparent);
     --trace: #c9d1cd;
     --text-secondary: #a8b3b0;
     --text-body: #c5cecb;
     --accent: #6e8bff;
-
+    --graphite: #121518;
     --shadow-wall: 0 8px 28px rgba(0, 0, 0, 0.35);
-
     color-scheme: dark;
   }
+}
+
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  src: url('/fonts/schibsted-grotesk-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
 }
 
 @font-face {

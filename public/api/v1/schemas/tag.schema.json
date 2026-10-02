@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://refledger.gautamkhosla.com/api/v1/schemas/tag.json",
+  "title": "Refledger API v1 tag",
+  "type": "object",
+  "required": ["api_version", "repo", "tag", "ref", "history"],
+  "properties": {
+    "api_version": { "const": "v1" },
+    "repo": { "type": "string" },
+    "canary": { "type": "boolean" },
+    "tag": { "type": "string" },
+    "ref": { "type": "string" },
+    "current": { "type": ["object", "null"] },
+    "pin_commit": { "type": ["string", "null"] },
+    "ref_type": { "type": "string" },
+    "history": { "type": "array" }
+  },
+  "additionalProperties": false
+}
