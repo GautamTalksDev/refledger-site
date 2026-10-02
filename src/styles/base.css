@@ -238,9 +238,7 @@ header.site {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--paper);
   border-bottom: 1px solid var(--rule2);
 }
 header.site .in {
