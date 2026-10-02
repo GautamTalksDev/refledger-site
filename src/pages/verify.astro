@@ -72,10 +72,12 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
     </section>
   </div>
 
-  <script define:vars={{ cli, entryCount }} is:inline>
-    window.__REFLEDGER_VERIFY_CLI__ = cli;
-    window.__REFLEDGER_ENTRY_COUNT__ = entryCount;
-  </script>
+  <div
+    id="verify-boot"
+    hidden
+    data-cli={cli}
+    data-entry-count={String(entryCount)}
+  ></div>
   <script>
     import {
       verifyLedger,
@@ -83,11 +85,14 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
       ed25519Available,
     } from '../lib/verify';
 
+    const boot = document.getElementById('verify-boot');
+    const fullCli = boot?.getAttribute('data-cli') || '';
+    const entryCountBoot = Number(boot?.getAttribute('data-entry-count') || '0');
+
     const btn = document.getElementById('vbtn') as HTMLButtonElement | null;
     const status = document.getElementById('vstatus');
     const chain = document.getElementById('vchain');
     const result = document.getElementById('vresult');
-    const fullCli = (window as any).__REFLEDGER_VERIFY_CLI__ as string;
 
     function buildCells(n: number): void {
       if (!chain) return;
@@ -102,7 +107,7 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
       }
     }
 
-    buildCells((window as any).__REFLEDGER_ENTRY_COUNT__ ?? 64);
+    buildCells(entryCountBoot || 64);
 
     async function loadJsonl(url: string): Promise<any[]> {
       const res = await fetch(url);

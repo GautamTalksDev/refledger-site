@@ -127,35 +127,13 @@ function hrefFor(ev: (typeof feed)[0]): string {
     </div>
   </div>
 
-  <script define:vars={{ ecoCount, total: feed.length }} is:inline>
-    (function () {
-      var on = new URLSearchParams(location.search).get('canary') === '1';
-      var rows = document.querySelectorAll('#moved-feed a.feedrow');
-      var shown = 0;
-      rows.forEach(function (r) {
-        var canary = r.getAttribute('data-canary') === '1';
-        var show = on || !canary;
-        r.hidden = !show;
-        if (show) shown++;
-      });
-      var note = document.querySelector('[data-canary-note]');
-      if (note) note.hidden = on;
-      var count = document.getElementById('moved-count');
-      if (count) {
-        count.textContent = on
-          ? shown + ' moves, ' + (shown - ecoCount) + ' of them our own tests'
-          : ecoCount +
-            (ecoCount === 1 ? ' ecosystem move' : ' ecosystem moves') +
-            ' this week';
-      }
-      document.querySelectorAll('[data-moved-tab]').forEach(function (a) {
-        var isEco = a.getAttribute('data-moved-tab') === 'eco';
-        var active = isEco ? !on : on;
-        a.classList.toggle('b-ink', active);
-        a.classList.toggle('b-line', !active);
-        if (active) a.setAttribute('aria-current', 'page');
-        else a.removeAttribute('aria-current');
-      });
-    })();
+  <div id="moved-boot" hidden data-eco-count={String(ecoCount)}></div>
+  <script>
+    import { bootMovedFilter } from '../scripts/moved-filter';
+    const eco = Number(
+      document.getElementById('moved-boot')?.getAttribute('data-eco-count') ||
+        '0',
+    );
+    bootMovedFilter(eco);
   </script>
 </BaseLayout>

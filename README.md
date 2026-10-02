@@ -31,3 +31,17 @@ npm run test:e2e
 ```
 
 Data is shallow-cloned at build time from the public `GautamTalksDev/refledger` `data` and `main` branches into `.cache/` (no token). Nothing is deployed from this repo until the Oct 9 seal check.
+
+## Privacy
+
+The site collects nothing from visitors (no accounts, cookies, analytics, or
+third-party scripts). Checks run in the browser and talk to GitHub's API
+directly. See [/privacy](https://refledger.gautamkhosla.com/privacy).
+
+## Security
+
+Report vulnerabilities via
+[GitHub private reporting](https://github.com/GautamTalksDev/refledger/security/advisories/new).
+Policy and signing-key notes live at
+[/security](https://refledger.gautamkhosla.com/security) and
+[`/.well-known/security.txt`](https://refledger.gautamkhosla.com/.well-known/security.txt).

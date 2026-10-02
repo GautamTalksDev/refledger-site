@@ -188,3 +188,38 @@ describe('assess', () => {
     expect(fixed[0].text).toContain('  - run: true');
   });
 });
+
+describe('loadRepo', () => {
+  it('treats contents 404 + repo 200 as empty workflows (octocat/Hello-World)', async () => {
+    const { loadRepo, GithubApiError } = await import(
+      '../src/lib/check-workflow'
+    );
+    const calls: string[] = [];
+    const fetchImpl = async (url: string) => {
+      calls.push(url);
+      if (url.includes('/contents/.github/workflows')) {
+        return new Response('Not Found', { status: 404 });
+      }
+      if (url.endsWith('/repos/octocat/Hello-World')) {
+        return Response.json({ full_name: 'octocat/Hello-World' });
+      }
+      throw new Error(`unexpected ${url}`);
+    };
+    const files = await loadRepo(
+      'octocat/Hello-World',
+      fetchImpl as unknown as typeof fetch,
+    );
+    expect(files).toEqual([]);
+    expect(calls).toEqual([
+      'https://api.github.com/repos/octocat/Hello-World/contents/.github/workflows',
+      'https://api.github.com/repos/octocat/Hello-World',
+    ]);
+    const missingFetch = (async (url: string) => {
+      if (url.includes('/contents/')) return new Response('', { status: 404 });
+      return new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    await expect(loadRepo('nope/missing', missingFetch)).rejects.toBeInstanceOf(
+      GithubApiError,
+    );
+  });
+});

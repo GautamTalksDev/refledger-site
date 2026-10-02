@@ -13,6 +13,8 @@ export async function GET() {
     '/moved',
     '/how',
     '/verify',
+    '/privacy',
+    '/security',
     '/incidents',
   ]);
 

@@ -36,44 +36,94 @@ const watchedLabel = repo.watched_since
   ? fmtUtc(repo.watched_since).split(',')[0]
   : 'unknown';
 
-const archiveTag = latestMove?.tag ?? movedTags[0];
+const archiveTag =
+  latestMove?.tag ??
+  movedTags[0] ??
+  (repo.tags.find((t) => t.tip?.commit_sha || t.tip?.target_sha)
+    ? tagFromRef(
+        repo.tags.find((t) => t.tip?.commit_sha || t.tip?.target_sha)!.ref,
+      )
+    : repo.tags[0]
+      ? tagFromRef(repo.tags[0].ref)
+      : null);
 const archiveMove = latestMove;
-const moments: { label: string; sha: string; note: string; pressed?: boolean }[] =
-  [];
-if (archiveTag && archiveMove && repo.watched_since) {
-  const moveDate = archiveMove.recorded_at.slice(0, 10);
-  const atWatch = buildAt(repo.watched_since.slice(0, 10), data);
-  const atMove = buildAt(moveDate, data);
-  const atNow = buildAt(data.buildTime.slice(0, 10), data);
+const moments: {
+  label: string;
+  date: string;
+  sha: string;
+  note: string;
+  window?: string;
+  pressed?: boolean;
+}[] = [];
 
-  function shaAt(snap: ReturnType<typeof buildAt>): string {
+function formatWindow(seconds: number | undefined): string | undefined {
+  if (seconds == null || seconds <= 0) return undefined;
+  if (seconds < 3600) return `Observation window: ${Math.round(seconds / 60)} minutes`;
+  if (seconds < 86400)
+    return `Observation window: ${(seconds / 3600).toFixed(1).replace(/\.0$/, '')} hours`;
+  return `Observation window: ${(seconds / 86400).toFixed(1).replace(/\.0$/, '')} days`;
+}
+
+if (archiveTag && repo.watched_since) {
+  const watchDate = repo.watched_since.slice(0, 10);
+  const nowDate = data.buildTime.slice(0, 10);
+  const atWatch = buildAt(watchDate, data);
+  const atNow = buildAt(nowDate, data);
+  const tip = repo.tags.find((t) => tagFromRef(t.ref) === archiveTag)?.tip;
+
+  function shaAt(snap: ReturnType<typeof buildAt>, asOfDate: string): string {
     const b = snap.bindings.find(
       (x) => x.repo === repoKey && x.tag === archiveTag,
     );
-    if (!b || b.source === 'absent') {
-      return shortSha(archiveMove.fromCommit ?? archiveMove.fromTarget ?? '');
+    if (b && b.source !== 'absent' && (b.commit_sha || b.target_sha)) {
+      return shortSha(b.commit_sha ?? b.target_sha ?? '');
     }
-    return shortSha(b.commit_sha ?? b.target_sha ?? '');
+    // 304 Ok observations store no refs; fall back to the live tip when it
+    // was already first-seen by asOfDate.
+    if (!tip) return 'absent';
+    const first = tip.first_observed?.slice(0, 10);
+    if (first && first > asOfDate) return 'absent';
+    return shortSha(tip.commit_sha ?? tip.target_sha ?? '');
   }
 
   moments.push({
     label: `${watchedLabel}, ${repo.watched_since.slice(11, 16)}`,
-    sha: shaAt(atWatch),
+    date: watchDate,
+    sha: shaAt(atWatch, watchDate),
     note: 'The first time we looked.',
   });
-  moments.push({
-    label: 'Before the move',
-    sha: shortSha(archiveMove.fromCommit ?? archiveMove.fromTarget ?? ''),
-    note: 'Unchanged.',
-  });
-  moments.push({
-    label: fmtUtc(archiveMove.recorded_at),
-    sha: shaAt(atMove),
-    note: 'After the move was recorded.',
-  });
+
+  if (archiveMove) {
+    const moveDate = archiveMove.recorded_at.slice(0, 10);
+    const entry = data.entriesBySeq.get(archiveMove.seq);
+    const windowSecs =
+      entry && 'observation_window_seconds' in entry
+        ? entry.observation_window_seconds
+        : undefined;
+    const dayBefore = new Date(`${moveDate}T00:00:00.000Z`);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+    const beforeDate = dayBefore.toISOString().slice(0, 10);
+    moments.push({
+      label: 'Before the move',
+      date: beforeDate,
+      sha: shortSha(archiveMove.fromCommit ?? archiveMove.fromTarget ?? ''),
+      note: 'Unchanged.',
+    });
+    moments.push({
+      label: fmtUtc(archiveMove.recorded_at),
+      date: moveDate,
+      sha: shaAt(buildAt(moveDate, data), moveDate),
+      note: 'After the move was recorded.',
+      window: formatWindow(
+        typeof windowSecs === 'number' ? windowSecs : undefined,
+      ),
+    });
+  }
+
   moments.push({
     label: 'Now',
-    sha: shaAt(atNow),
+    date: nowDate,
+    sha: shaAt(atNow, nowDate),
     note: 'Current binding.',
     pressed: true,
   });
@@ -221,13 +271,20 @@ if (archiveTag && archiveMove && repo.watched_since) {
             <h2 class="h3">Ask the archive</h2>
             <p style="margin:8px 0 0;color:var(--ink2)">
               What did {archiveTag} point at, at a moment in the past? Only a record
-              kept at the time can answer.
+              kept at the time can answer. Answers come from{' '}
+              <a href={`/api/v1/at/${moments[moments.length - 1]?.date}.json`}
+                ><code class="mono">/api/v1/at</code></a
+              >{' '}
+              and the binding history.
             </p>
             <div
               class="row"
-              style="margin-top:20px"
+              style="margin-top:20px;flex-wrap:wrap;gap:8px"
               role="group"
               aria-label="Pick a moment"
+              data-archive-moments
+              data-repo={repoKey}
+              data-tag={archiveTag}
             >
               {
                 moments.map((m) => (
@@ -235,17 +292,21 @@ if (archiveTag && archiveMove && repo.watched_since) {
                     type="button"
                     class={`btn small ${m.pressed ? 'b-ink' : 'b-line'}`}
                     data-act="moment"
+                    data-date={m.date}
                     data-sha={m.sha}
                     data-note={m.note}
-                    aria-pressed={m.pressed ? 'true' : 'false'}>{m.label}</button
+                    data-window={m.window || ''}
+                    aria-pressed={m.pressed ? 'true' : 'false'}
                   >
+                    {m.label}
+                  </button>
                 ))
               }
             </div>
             <div
               aria-live="polite"
               class="row"
-              style="margin-top:22px;align-items:baseline"
+              style="margin-top:22px;align-items:baseline;flex-wrap:wrap;gap:10px"
             >
               <span class="ins" style="color:var(--ink2)">{archiveTag} pointed at</span>
               <span
@@ -256,6 +317,9 @@ if (archiveTag && archiveMove && repo.watched_since) {
               >
               <span class="ins muted" id="mo-note" style="font-size:14px"
                 >{moments[moments.length - 1]?.note}</span
+              >
+              <span class="ins muted" id="mo-window" style="font-size:14px"
+                >{moments[moments.length - 1]?.window || ''}</span
               >
             </div>
           </div>
@@ -300,26 +364,8 @@ if (archiveTag && archiveMove && repo.watched_since) {
     </p>
   </div>
 
-  <script is:inline>
-    document.querySelectorAll('[data-act="moment"]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-act="moment"]').forEach((x) => {
-          x.classList.remove('b-ink');
-          x.classList.add('b-line');
-          x.setAttribute('aria-pressed', 'false');
-        });
-        btn.classList.add('b-ink');
-        btn.classList.remove('b-line');
-        btn.setAttribute('aria-pressed', 'true');
-        const sha = btn.getAttribute('data-sha') || '';
-        const el = document.getElementById('mo-sha');
-        if (el) el.textContent = sha;
-        const note = document.getElementById('mo-note');
-        if (note) note.textContent = btn.getAttribute('data-note') || '';
-      });
-    });
-  </script>
   <script>
+    import '../../../scripts/archive-moments';
     document.querySelectorAll('[data-copy]').forEach((el) => {
       el.addEventListener('click', async () => {
         const text = el.getAttribute('data-copy') || '';

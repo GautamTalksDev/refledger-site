@@ -291,7 +291,7 @@ export async function runCheck(
       state = {
         phase: 'error',
         title: "We couldn't find that repository.",
-        body: 'It needs to be public, and to have workflows in .github/workflows. For a private repository, paste a workflow file instead.',
+        body: 'It needs to be public. For a private repository, paste a workflow file instead.',
       };
       renderState(root, state);
       return;

@@ -284,11 +284,11 @@ const tipSeq = Math.max(0, data.chainLength - 1);
     </section>
   </div>
 
-  <script define:vars={{ payload }} is:inline>
-    window.__REFLEDGER_HOW__ = payload;
-  </script>
+  <template id="how-payload">{JSON.stringify(payload)}</template>
   <script>
     import { bootHowPage } from '../scripts/how-app';
-    bootHowPage((window as any).__REFLEDGER_HOW__);
+    const tpl = document.getElementById('how-payload');
+    const payload = JSON.parse(tpl?.textContent || '{}');
+    bootHowPage(payload);
   </script>
 </BaseLayout>

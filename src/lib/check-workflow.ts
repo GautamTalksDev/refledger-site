@@ -253,7 +253,16 @@ export async function loadRepo(
   const res = await fetchImpl(
     `https://api.github.com/repos/${repo}/contents/.github/workflows`,
   );
-  if (res.status === 404) throw new GithubApiError('notfound', 404);
+  if (res.status === 404) {
+    // Contents 404 means either the repo is missing, or it exists with no
+    // .github/workflows tree. Distinguish with a cheap repo metadata GET.
+    const meta = await fetchImpl(`https://api.github.com/repos/${repo}`);
+    if (meta.status === 404) throw new GithubApiError('notfound', 404);
+    if (meta.status === 403 || meta.status === 429)
+      throw new GithubApiError('ratelimit', 403);
+    if (!meta.ok) throw new Error(`status ${meta.status}`);
+    return [];
+  }
   if (res.status === 403 || res.status === 429)
     throw new GithubApiError('ratelimit', 403);
   if (!res.ok) throw new Error(`status ${res.status}`);
