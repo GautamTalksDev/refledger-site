@@ -2,8 +2,8 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { canonicalJson } from '../../lib/canonical';
 import { getSiteData, effectiveDisplayClassification, shortSha } from '../../data';
-import { whatChangedFromEntry } from '../../lib/what-changed';
 import { fmtLedgerAsOf, fmtUtc, titleCaseSeverity } from '../../lib/format';
+import { entryHeadline } from '../../lib/headline';
 
 export function getStaticPaths() {
   const data = getSiteData();
@@ -21,7 +21,6 @@ const { entry_hash, ...withoutHash } = entry as typeof entry & {
 };
 const rawCanonical = canonicalJson(withoutHash);
 const correction = data.correctionsBySeq.get(seq) ?? null;
-const display = whatChangedFromEntry(entry, correction);
 const classification = effectiveDisplayClassification(entry, correction);
 const prev = seq > 0 ? seq - 1 : null;
 const next = seq + 1 < data.chainLength ? seq + 1 : null;
@@ -77,10 +76,14 @@ if (isMove && entry.event !== 'deletion' && 'to' in entry && entry.to) {
 facts.push(['First seen', `${fmtUtc(entry.recorded_at)} UTC`]);
 if (prev !== null) facts.push(['Chained to', `Entry ${prev}`]);
 
-const headline =
-  repo && tag
-    ? `${repo} ${tag}`
-    : entry.event;
+const correctedTarget =
+  entry.event === 'correction' ? data.entriesBySeq.get(entry.corrects_seq) : null;
+const headline = entryHeadline(entry, correctedTarget);
+const subject = headline.subject;
+const rest =
+  subject && headline.text.startsWith(`${subject} `)
+    ? headline.text.slice(subject.length + 1)
+    : null;
 ---
 
 <BaseLayout
@@ -99,12 +102,10 @@ const headline =
             Entry {prev}
           </a>
         ) : (
-          <span class="btn b-line small u-06a6aace"
-            >Entry</span
-          >
+          <button type="button" class="btn b-line small" disabled>Oldest entry</button>
         )
       }
-      <span class="lbl"
+      <span class="lbl nums"
         >The ledger, entry {seq} of {data.chainLength}</span
       >
       {
@@ -113,38 +114,31 @@ const headline =
             Entry {next}
           </a>
         ) : (
-          <span class="btn b-line small u-06a6aace"
-            >Entry</span
-          >
+          <button type="button" class="btn b-line small" disabled>Newest entry</button>
         )
       }
     </div>
 
-    <div
-      class="grid12 u-843aaf2f"
-     
-    >
-      <section class="span6 u-fd9d635d">
+    <div class="entry-split">
+      <section class="entry-facts">
         <div class="lbl">Entry</div>
-        <h1
-          class="mono u-443e6194"
-          tabindex="-1"
-         
-        >
-          {seq}
-        </h1>
-        <p class="u-f390bc86">
-          {
-            repo && tag ? (
-              <a href={`/a/${repo}/${tag}`}>
-                {headline}
-              </a>
-            ) : (
-              headline
-            )
-          }
-          {isMove ? ` ${display.phrase.toLowerCase()}.` : '.'}
-        </p>
+        <p class="entry-seq nums">{seq}</p>
+        <div class="entry-head">
+          <h1 class="entry-title" tabindex="-1">
+            {
+              subject && rest && headline.href ? (
+                <>
+                  <a href={headline.href}>{subject}</a>
+                  {' '}
+                  {rest}
+                </>
+              ) : (
+                headline.text
+              )
+            }
+          </h1>
+          {headline.canary && <span class="pill">Canary</span>}
+        </div>
         {
           correction && (
             <aside
@@ -176,25 +170,14 @@ const headline =
           }
         </dl>
       </section>
-      <section
-        class="span6 night u-d5b88bb5"
-       
-        aria-label="Canonical bytes"
-      >
+      <section class="entry-json night" aria-label="Canonical bytes">
         <div class="lbl">Canonical JSON, abridged</div>
-        <pre
-          class="mono u-88434574"
-         
-          ><code
+        <pre class="mono"><code
             >{rawCanonical.length > 1200
               ? rawCanonical.slice(0, 1200) + '…'
               : rawCanonical}</code
-          ></pre
-        >
-        <p
-          class="ins u-ee795180"
-         
-        >
+          ></pre>
+        <p class="ins entry-json-note">
           The SHA-256 of these bytes is this entry's hash ({shortSha(entry_hash.replace(/^sha256:/, ''), 8)}
           ). The next entry begins with it. Change one byte, and the chain
           breaks.

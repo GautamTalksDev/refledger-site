@@ -299,6 +299,7 @@ export function fetchLedgerData(options: FetchOptions = {}): RawLedgerData {
   const obsDir = join(dataDir, 'observations');
   const watchedPath = join(mainDir, 'population', 'watched.jsonl');
   const incidentsPath = join(mainDir, 'docs', 'INCIDENTS.md');
+  const summariesPath = join(mainDir, 'docs', 'incident-summaries.md');
   const publicKeyPath = join(mainDir, 'docs', 'PUBLIC-KEY.md');
   const methodPath = join(mainDir, 'population', 'METHOD.md');
 
@@ -311,6 +312,7 @@ export function fetchLedgerData(options: FetchOptions = {}): RawLedgerData {
   const observations = loadObservations(obsDir);
   const watched = loadWatched(watchedPath);
   const incidents_md = readMarkdown(incidentsPath, true);
+  const incident_summaries_md = readMarkdown(summariesPath, true);
   const public_key_md = readMarkdown(publicKeyPath, true);
   const method_md = readMarkdown(methodPath, true);
   const objects = loadObjectCache(dataDir);
@@ -321,6 +323,7 @@ export function fetchLedgerData(options: FetchOptions = {}): RawLedgerData {
     observations,
     watched,
     incidents_md,
+    incident_summaries_md,
     public_key_md,
     method_md,
     objects,
@@ -352,6 +355,10 @@ export function fetchFromFixtureRoot(fixtureRoot: string): RawLedgerData {
     observations: loadObservations(obsDir),
     watched: loadWatched(watchedPath),
     incidents_md: readMarkdown(join(fixtureRoot, 'INCIDENTS.md'), false),
+    incident_summaries_md: readMarkdown(
+      join(fixtureRoot, 'incident-summaries.md'),
+      false,
+    ),
     public_key_md: readMarkdown(join(fixtureRoot, 'PUBLIC-KEY.md'), false),
     method_md: readMarkdown(join(fixtureRoot, 'METHOD.md'), false),
     objects: loadObjectCache(fixtureRoot),

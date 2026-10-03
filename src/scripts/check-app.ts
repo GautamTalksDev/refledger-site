@@ -7,7 +7,9 @@ import {
   assess,
   assertUniqueRefBudget,
   fixedFiles,
+  localSkipLabel,
   loadRepo,
+  orderResults,
   normalizeRepo,
   parseFiles,
   resolveSha,
@@ -74,7 +76,7 @@ function renderState(root: HTMLElement, st: CheckState) {
   if (st.phase === 'scanning') {
     setHTML(
       root,
-      `<div class="wrap narrow u-0b79e164" aria-live="polite">
+      `<div class="wrap u-0b79e164" aria-live="polite">
       <h1 class="h2" tabindex="-1">Checking <span class="mono u-96d56823">${esc(st.repo)}</span></h1>
       <ol class="scan ins">${st.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
     </div>`,
@@ -85,7 +87,7 @@ function renderState(root: HTMLElement, st: CheckState) {
   if (st.phase === 'error') {
     setHTML(
       root,
-      `<div class="wrap narrow u-8692f6fe">
+      `<div class="wrap u-8692f6fe">
       <h1 class="h2" tabindex="-1">${esc(st.title)}</h1>
       <p class="lede u-86de7ac6">${esc(st.body)}</p>
       <div class="row u-583f758b">
@@ -98,7 +100,9 @@ function renderState(root: HTMLElement, st: CheckState) {
     return;
   }
 
-  const res = st.results.filter((r) => r.item.kind !== 'local');
+  const ordered = orderResults(st.results);
+  const res = ordered.rows;
+  const local = ordered.local;
   const risky = res.filter((r) =>
     ['tag', 'branch', 'short'].includes(r.item.kind),
   ).length;
@@ -122,7 +126,7 @@ function renderState(root: HTMLElement, st: CheckState) {
         : '')
     : 'Nothing for us to fix here.';
 
-  let html = `<div class="wrap narrow u-ed929bb2">
+  let html = `<div class="wrap u-ed929bb2">
     <div class="row u-a562f4fd"><span class="mono u-b02037ec">${esc(st.repo)}</span><span class="row">${st.example ? `<span class="pill">${esc(st.exampleNote || 'Example')}</span>` : ''}<a href="/" class="btn b-line small">Check another</a></span></div>
     <h1 class="h2 rise u-583f758b" tabindex="-1">${esc(head)}</h1>
     <p class="lede u-89aac90e">${esc(sub)}</p>`;
@@ -130,8 +134,8 @@ function renderState(root: HTMLElement, st: CheckState) {
     html += `<div class="row u-583f758b"><button type="button" class="btn b-blue u-14ea7ed7" data-act="copyfixed">Copy the fixed workflows</button><span class="ins muted u-433de30b">${fixable}${fixable === 1 ? ' line changes' : ' lines change'}. Nothing else is touched.</span></div>`;
   if (st.unresolved)
     html += `<p class="ins u-81c4b3d7">${esc(st.unresolved)}</p>`;
-  html += `<ol class="u-1f6a69df">`;
-  for (const r of st.results) {
+  html += `<ol class="results u-1f6a69df">`;
+  for (const r of res) {
     html += `<li class="paper result${r.attn ? ' attn' : ''}">
       <div class="row u-e590e28c"><span class="mono u-910cb782">${esc(r.item.spec)}${r.item.comment ? ` <span class="u-3bcc9f3f"># ${esc(r.item.comment)}</span>` : ''}</span><span class="lbl">${esc(r.item.file)}, line ${r.item.line}</span></div>
       <div class="status-line${r.attn ? ' attn' : ''}">${esc(r.status)}</div>
@@ -140,7 +144,17 @@ function renderState(root: HTMLElement, st: CheckState) {
       ${r.link ? `<a class="u-8e937ccd" href="${r.link.href}">${esc(r.link.text)}</a>` : ''}
     </li>`;
   }
-  html += `</ol>
+  html += `</ol>`;
+  if (local.length) {
+    const items = local
+      .map(
+        (r) =>
+          `<li><span class="mono">${esc(r.item.spec)}</span> <span class="lbl">${esc(r.item.file)}, line ${r.item.line}</span></li>`,
+      )
+      .join('');
+    html += `<details class="paper skip-local"><summary>${esc(localSkipLabel(local.length))}</summary><ul>${items}</ul></details>`;
+  }
+  html += `
     <div class="night u-91fbfd74"><div class="row u-8083fa74"><div class="u-765d57b5"><h2 class="h3 u-aa546bcc">Want to know if one of these moves?</h2><p class="u-83403a04">We check every watched action every five minutes, and publish every move.</p></div><a href="/moved" class="btn b-light">Follow what moves</a></div></div>
     <p class="lbl u-a26bda7d">We describe what moved and when. Whether to trust an action is your call.</p></div>`;
   setHTML(root, html);
@@ -376,7 +390,7 @@ export function bootCheckPage(payload: PublicLedgerPayload) {
   }
   setHTML(
     root,
-    `<div class="wrap narrow u-5edb7037">
+    `<div class="wrap u-5edb7037">
     <h1 class="h2" tabindex="-1">Check a repository</h1>
     <p class="lede u-86de7ac6">Enter a public GitHub repository on the home page, or <a href="/paste">paste a workflow</a>.</p>
     <div class="row u-583f758b"><a href="/" class="btn b-blue">Go home</a></div>

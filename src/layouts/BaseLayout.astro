@@ -132,24 +132,50 @@ const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
     </main>
 
     <footer class="site">
-      <div class="wrap in">
-        <span>Refledger records facts, never verdicts.</span>
-        <nav aria-label="Footer">
-          <a href="/how">How it works</a>
-          <a href="/incidents">Incidents</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/security">Security</a>
-          <a href={`/a/${exampleAction}`}>Example action</a>
-          {
-            latestSeq != null && (
-              <a href={`/e/${latestSeq}`}>Latest entry</a>
-            )
-          }
-          <a
-            href="https://github.com/GautamTalksDev/refledger"
-            rel="noopener noreferrer">Source</a
-          >
-        </nav>
+      <div class="wrap foot">
+        <div class="foot-brand">
+          <a href="/" class="logo logo-sm" aria-label="Refledger home">
+            <svg
+              width="22"
+              height="16"
+              viewBox="0 0 28 20"
+              aria-hidden="true"
+              fill="none"
+              stroke-width="2.2"
+              stroke-linecap="round"
+            >
+              <path d="M2 4 H26" stroke="currentColor"></path>
+              <path d="M2 10 H13 V16 H26" stroke="var(--blue)"></path>
+            </svg>
+            Refledger
+          </a>
+          <p class="foot-note">Refledger records facts, never verdicts.</p>
+        </div>
+        <div class="foot-groups">
+          <nav aria-label="Using Refledger">
+            <a href="/">Check a repo</a>
+            <a href="/moved">What moved</a>
+            <a href="/how">How it works</a>
+            <a href="/verify">Verify</a>
+          </nav>
+          <nav aria-label="The record">
+            <a href="/incidents">Incidents</a>
+            <a href={`/a/${exampleAction}`}>Example action</a>
+            {
+              latestSeq != null && (
+                <a href={`/e/${latestSeq}`}>Latest entry</a>
+              )
+            }
+          </nav>
+          <nav aria-label="Project">
+            <a href="/privacy">Privacy</a>
+            <a href="/security">Security</a>
+            <a
+              href="https://github.com/GautamTalksDev/refledger"
+              rel="noopener noreferrer">Source</a
+            >
+          </nav>
+        </div>
       </div>
     </footer>
     {

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assess,
   fixedFiles,
+  localSkipLabel,
+  orderResults,
   parseFiles,
   type LedgerLookup,
   type ParsedUses,
@@ -186,6 +188,44 @@ describe('assess', () => {
       'uses: actions/checkout@cccccccccccccccccccccccccccccccccccccccc # v4',
     );
     expect(fixed[0].text).toContain('  - run: true');
+  });
+});
+
+describe('orderResults', () => {
+  it('puts moved tags, then movable tags, then pins, and collapses local and docker', () => {
+    const files = [
+      {
+        name: 'ci.yml',
+        text: [
+          'steps:',
+          '  - uses: ./.github/actions/build',
+          '  - uses: docker://alpine:3.19',
+          '  - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
+          '  - uses: actions/checkout@v4',
+          '  - uses: reviewdog/action-actionlint@v1',
+          '  - uses: ./.github/actions/test',
+        ].join('\n'),
+      },
+    ];
+    const items = parseFiles(files);
+    const results = items.map((it) => assess(it, null, ledger()));
+    const ordered = orderResults(results);
+    expect(ordered.local.map((r) => r.item.spec)).toEqual([
+      './.github/actions/build',
+      'docker://alpine:3.19',
+      './.github/actions/test',
+    ]);
+    expect(ordered.rows.map((r) => r.item.spec)).toEqual([
+      'reviewdog/action-actionlint@v1',
+      'actions/checkout@v4',
+      'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
+    ]);
+    expect(localSkipLabel(20)).toBe(
+      '20 local actions skipped (not affected by moved tags)',
+    );
+    expect(localSkipLabel(1)).toBe(
+      '1 local action skipped (not affected by moved tags)',
+    );
   });
 });
 

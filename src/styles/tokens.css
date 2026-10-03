@@ -1,6 +1,6 @@
 :root {
   --paper: #edf0ee;
-  --grid: #dde3e0;
+  --grid: #e4e9e6;
   --surface: #f7f9f8;
   --card: #ffffff;
   --ink: #121518;
@@ -18,6 +18,13 @@
   --ntext: #e9edeb;
   --nmuted: #a3aeab;
   --shadow: rgba(18, 21, 24, 0.45);
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --highlight: rgba(255, 255, 255, 0.72);
+  --page-max: 1160px;
+  --page-pad: 32px;
+  --r-sm: 8px;
+  --r-md: 16px;
+  --r-lg: 24px;
   --font-display: 'Schibsted Grotesk', 'Segoe UI', system-ui, sans-serif;
   --font-ins: 'B612', sans-serif;
   --font-mono: 'B612 Mono', ui-monospace, monospace;
@@ -45,6 +52,8 @@
     --ntext: #e9edeb;
     --nmuted: #9aa6a3;
     --shadow: rgba(0, 0, 0, 0.6);
+    --line: color-mix(in srgb, var(--ink) 14%, transparent);
+    --highlight: rgba(255, 255, 255, 0.08);
     color-scheme: dark;
   }
 }
@@ -69,6 +78,8 @@
   --ntext: #e9edeb;
   --nmuted: #9aa6a3;
   --shadow: rgba(0, 0, 0, 0.6);
+  --line: color-mix(in srgb, var(--ink) 14%, transparent);
+  --highlight: rgba(255, 255, 255, 0.08);
   color-scheme: dark;
 }
 

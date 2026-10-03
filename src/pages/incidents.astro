@@ -1,88 +1,14 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getSiteData } from '../data';
-import { fmtLedgerAsOf, fmtUtc } from '../lib/format';
+import { fmtLedgerAsOf } from '../lib/format';
+import { parseIncidentSummaries, renderPlainMarkdown } from '../lib/incidents';
 
 const data = getSiteData();
 const tipSeq = Math.max(0, data.chainLength - 1);
-
-type IncidentRow = {
-  when: string;
-  title: string;
-  what: string;
-  response: string;
-};
-
-function parseIncidents(md: string): IncidentRow[] {
-  const rows: IncidentRow[] = [];
-  const lines = md.replace(/\r\n/g, '\n').split('\n');
-  // Prefer markdown table rows if present
-  for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].startsWith('|')) continue;
-    if (!lines[i + 1]?.match(/^\|[\s-:|]+$/)) continue;
-    i += 2;
-    while (i < lines.length && lines[i].startsWith('|')) {
-      const cells = lines[i]
-        .split('|')
-        .slice(1, -1)
-        .map((c) =>
-          c
-            .trim()
-            .replace(/\u2014/g, ',')
-            .replace(/\u2013/g, '-')
-            .replace(/--/g, ', '),
-        );
-      if (cells.length >= 4) {
-        rows.push({
-          when: cells[0],
-          title: cells[1],
-          what: cells[2],
-          response: cells[3],
-        });
-      }
-      i++;
-    }
-  }
-  if (rows.length) return rows;
-
-  // Fall back: ## headings as titles, following paragraphs as body
-  let current: IncidentRow | null = null;
-  for (const line of lines) {
-    if (line.startsWith('## ')) {
-      if (current) rows.push(current);
-      current = {
-        when: '',
-        title: line
-          .slice(3)
-          .replace(/\u2014/g, ',')
-          .replace(/\u2013/g, '-')
-          .replace(/--/g, ', '),
-        what: '',
-        response: '',
-      };
-      continue;
-    }
-    if (!current || !line.trim()) continue;
-    if (!current.what) current.what = line.trim();
-    else if (!current.response) current.response = line.trim();
-  }
-  if (current) rows.push(current);
-  return rows;
-}
-
-const fromMd = parseIncidents(data.incidentsMd);
-const digestNotes = data.digests
-  .filter((d) => d.observation_digest.note)
-  .map((d) => ({
-    when: fmtUtc(d.recorded_at).split(',')[0],
-    title: `Digest note, entry ${d.seq}`,
-    what: d.observation_digest.note!,
-    response: 'Disclosed in the signed observation digest.',
-  }));
-
-const incidents: IncidentRow[] = [...fromMd];
-for (const n of digestNotes) {
-  if (!incidents.some((r) => r.what === n.what)) incidents.push(n);
+const incidents = parseIncidentSummaries(data.incidentSummariesMd);
+if (!incidents.length) {
+  throw new Error('docs/incident-summaries.md produced no incidents');
 }
 ---
 
@@ -103,31 +29,23 @@ for (const n of digestNotes) {
       add to this list. We never remove from it. Most were caught by our own
       canary.
     </p>
-    <ol class="u-73604b97"
-     
-    >
+    <ol class="incident-list">
       {
         incidents.map((x) => (
-          <li
-            class="paper grid12 u-2b690e9e"
-           
-          >
-            <span
-              class="ins u-2e30b426"
-             
-            >
-              {x.when || 'Noted'}
-            </span>
-            <span class="u-80777b60">
-              {x.title}
-            </span>
-            <span class="u-f6a36cf6">{x.what}</span>
-            <span
-              class="ins u-9aaf6fc7"
-             
-            >
-              {x.response}
-            </span>
+          <li class="paper incident">
+            <p class="lbl nums">{x.when}</p>
+            <h2 class="h3">{x.title}</h2>
+            <p class="incident-body">
+              {x.happened} {x.effect}
+            </p>
+            <p class="incident-changed">
+              <span class="lbl">What changed. </span>
+              {x.changed}
+            </p>
+            <details class="tech">
+              <summary>Technical details</summary>
+              <div class="md" set:html={renderPlainMarkdown(x.technical)} />
+            </details>
           </li>
         ))
       }

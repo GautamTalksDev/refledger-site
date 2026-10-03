@@ -196,6 +196,48 @@ function formatWatchStart(ms: number): string {
   return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
 
+export type ResultGroup = 'moved' | 'movable' | 'pinned' | 'local';
+
+export function resultGroup(result: AssessResult): ResultGroup {
+  const spec = result.item.spec;
+  if (
+    result.item.kind === 'local' ||
+    spec.startsWith('./') ||
+    spec.startsWith('docker://')
+  ) {
+    return 'local';
+  }
+  if (result.status.startsWith('Uses a tag that moved')) return 'moved';
+  if (result.item.kind === 'sha') return 'pinned';
+  return 'movable';
+}
+
+const GROUP_ORDER: Record<Exclude<ResultGroup, 'local'>, number> = {
+  moved: 0,
+  movable: 1,
+  pinned: 2,
+};
+
+/** Moved tags, then movable tags, then pins. Local and docker are separate. */
+export function orderResults(results: AssessResult[]): {
+  rows: AssessResult[];
+  local: AssessResult[];
+} {
+  const local: AssessResult[] = [];
+  const rows: AssessResult[] = [];
+  for (const result of results) {
+    if (resultGroup(result) === 'local') local.push(result);
+    else rows.push(result);
+  }
+  rows.sort((a, b) => GROUP_ORDER[resultGroup(a) as Exclude<ResultGroup, 'local'>] - GROUP_ORDER[resultGroup(b) as Exclude<ResultGroup, 'local'>]);
+  return { rows, local };
+}
+
+export function localSkipLabel(count: number): string {
+  const noun = count === 1 ? 'local action' : 'local actions';
+  return `${count} ${noun} skipped (not affected by moved tags)`;
+}
+
 export function assess(
   item: ParsedUses,
   sha: string | null,

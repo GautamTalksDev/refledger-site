@@ -32,6 +32,13 @@ export function fmtLedgerAsOf(iso: string): string {
   return `${fmtUtc(iso)} UTC`;
 }
 
+/** Whole days from the first signed entry to the latest check. */
+export function daysRunning(startIso: string, endIso: string): number {
+  const ms = Date.parse(endIso) - Date.parse(startIso);
+  if (!Number.isFinite(ms) || ms < 0) return 0;
+  return Math.floor(ms / 86_400_000);
+}
+
 export function agoFrom(ms: number, nowMs: number): string {
   const h = Math.round((nowMs - ms) / 3_600_000);
   if (h < 1) return 'less than an hour';

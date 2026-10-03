@@ -85,6 +85,7 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
       PINNED_PUBKEY,
       ed25519Available,
     } from '../lib/verify';
+    import { TILE_REVEAL_MS, revealImmediately } from '../lib/reveal';
     import { clearHTML, setHTML } from '../lib/trusted-html';
 
     const boot = document.getElementById('verify-boot');
@@ -142,8 +143,30 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
       });
     });
 
+    let revealTimer = 0;
+
+    function paintTiles(
+      entries: { seq: number; event?: string }[],
+      digestSeqs: Set<number>,
+      count: number,
+    ): void {
+      if (!chain) return;
+      const cells = chain.querySelectorAll('span');
+      cells.forEach((cell, i) => {
+        if (i >= entries.length) return;
+        if (i < count) {
+          const seq = entries[i]?.seq;
+          cell.className = digestSeqs.has(seq) ? 'seal' : 'on';
+        } else {
+          cell.className = '';
+        }
+      });
+    }
+
     btn?.addEventListener('click', async () => {
       if (!status || !btn || !chain || !result) return;
+      if (revealTimer) window.clearInterval(revealTimer);
+      revealTimer = 0;
       btn.disabled = true;
       clearHTML(result);
       chain.querySelectorAll('span').forEach((c) => {
@@ -156,6 +179,10 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
         btn.disabled = false;
         return;
       }
+
+      const reduce = revealImmediately(
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      );
 
       try {
         status.textContent = 'Loading published log files…';
@@ -178,45 +205,57 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
           pinnedPubkey: PINNED_PUBKEY,
           onProgress: (p) => {
             if (p.phase === 'chain') {
-              status.textContent = `Checking entry ${p.done} of ${p.total}`;
-              const cells = chain.querySelectorAll('span');
-              if (p.done > 0 && p.done <= cells.length) {
-                const idx = p.done - 1;
-                const seq = entries[idx]?.seq;
-                cells[idx].className = digestSeqs.has(seq) ? 'seal' : 'on';
-              }
-            } else {
+              if (reduce) status.textContent = `Checking entry ${p.done} of ${p.total}`;
+            } else if (reduce) {
               status.textContent = `Checking signed heads (${p.done}/${p.total})…`;
             }
           },
         });
 
-        if (verifyResult.ok) {
-          chain.querySelectorAll('span').forEach((c, i) => {
-            if (i >= entries.length) return;
-            const seq = entries[i]?.seq;
-            c.className = digestSeqs.has(seq) ? 'seal' : 'on';
-          });
-          status.textContent = 'Every hash matches. Every signature checks.';
-          btn.textContent = 'Verify again';
-        } else {
-          chain.querySelectorAll('span').forEach((c) => {
-            c.className = 'on';
-          });
-          status.textContent = 'Verification failed. See details below.';
-        }
-
         const esc = (s: string) =>
           String(s).replace(/[&<>"']/g, (c) =>
             ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
           );
-        setHTML(
-          result,
-          `<div class="rise mono u-082b7a2b">${verifyResult.lines.map((l) => esc(l)).join('<br>')}</div>`,
-        );
+        const showLines = () => {
+          setHTML(
+            result,
+            `<div class="rise mono u-082b7a2b">${verifyResult.lines.map((l) => esc(l)).join('<br>')}</div>`,
+          );
+        };
+
+        if (!verifyResult.ok) {
+          status.textContent = 'Verification failed. See details below.';
+          showLines();
+          btn.disabled = false;
+          return;
+        }
+
+        const finishOk = () => {
+          paintTiles(entries, digestSeqs, entries.length);
+          status.textContent = 'Every hash matches. Every signature checks.';
+          btn.textContent = 'Verify again';
+          showLines();
+          btn.disabled = false;
+        };
+
+        if (reduce) {
+          finishOk();
+          return;
+        }
+
+        let shown = 0;
+        revealTimer = window.setInterval(() => {
+          shown += 1;
+          paintTiles(entries, digestSeqs, shown);
+          status.textContent = `Checking entry ${shown} of ${entries.length}`;
+          if (shown >= entries.length) {
+            window.clearInterval(revealTimer);
+            revealTimer = 0;
+            finishOk();
+          }
+        }, TILE_REVEAL_MS);
       } catch (err) {
         status.textContent = `Could not complete verification: ${(err as Error).message}`;
-      } finally {
         btn.disabled = false;
       }
     });

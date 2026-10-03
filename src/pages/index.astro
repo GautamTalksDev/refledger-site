@@ -1,9 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getSiteData } from '../data';
-import { agoFrom, fmtLedgerAsOf } from '../lib/format';
+import { buildIndex } from '../lib/api-v1';
+import { agoFrom, daysRunning, fmtLedgerAsOf } from '../lib/format';
 
 const data = getSiteData();
+const pop = buildIndex(data).population;
 const nowMs = new Date(data.buildTime).getTime();
 const eco = data.traceEvents.filter((e) => !e.isCanary);
 const latest = eco[0]
@@ -15,6 +17,8 @@ const latest = eco[0]
     }
   : null;
 const tipSeq = Math.max(0, data.chainLength - 1);
+const days = daysRunning(data.genesisAt, data.lastCheckedAt);
+const checked = fmtLedgerAsOf(data.lastCheckedAt);
 ---
 
 <BaseLayout
@@ -22,51 +26,78 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   description="Refledger checks every GitHub Action your workflow uses, tells you which ones can change without you knowing, and gives you the fix. Backed by a public, signed record of where every watched tag has pointed."
   canonicalPath="/"
   nav="home"
-  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOf={checked}
   ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
-  <div class="wrap narrow u-5edb7037">
-    <h1 class="h1" tabindex="-1">
-      Is your workflow running the code you think it is?
-    </h1>
-    <p class="lede u-467b108f">
-      Enter a public GitHub repository. We check every action it uses, tell you
-      which ones can change without you knowing, and give you the fix.
-    </p>
-    <form class="bigform u-d9f14975" action="/check" method="get">
-      <label for="repo" class="lbl u-3717df59">Repository</label>
-      <input
-        id="repo"
-        name="repo"
-        type="text"
-        placeholder="your-org/your-repo"
-        autocomplete="off"
-        autocapitalize="off"
-        spellcheck="false"
-        required
-      />
-      <button type="submit" class="btn b-blue">Check</button>
-    </form>
-    <p class="ins muted u-0f354534">
-      Runs in your browser. Nothing is stored.
-      <a href="/paste" class="linkbtn u-36ec7417"
-        >Paste a workflow instead</a
-      >
-      or
-      <a href="/check?example=1" class="linkbtn u-36ec7417"
-        >try an example</a
-      >.
-    </p>
+  <div class="wrap hero">
+    <div class="hero-band enter">
+      <h1 class="h1" tabindex="-1">
+        Is your workflow running the code you think it is?
+      </h1>
+      <p class="lede">
+        Enter a public GitHub repository. We check every action it uses, tell you
+        which ones can change without you knowing, and give you the fix.
+      </p>
+      <form class="bigform" action="/check" method="get">
+        <label for="repo" class="lbl">Repository</label>
+        <input
+          id="repo"
+          name="repo"
+          type="text"
+          placeholder="your-org/your-repo"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          required
+        />
+        <button type="submit" class="btn b-blue">Check</button>
+      </form>
+      <p class="ins muted hero-note">
+        Runs in your browser. Nothing is stored.{' '}
+        <a href="/paste" class="linkbtn">Paste a workflow instead</a>
+        {' '}or{' '}
+        <a href="/check?example=1" class="linkbtn">try an example</a>.
+      </p>
+    </div>
 
-    <div class="card u-2f9d4901">
-      <div
-        class="row u-6c6195d3"
-       
-      >
-        <div class="u-765d57b5">
+    <dl class="instrument">
+      <div>
+        <dt>Actions watched</dt>
+        <dd>{pop.action_count}</dd>
+      </div>
+      <div>
+        <dt>Signed entries</dt>
+        <dd>{data.chainLength}</dd>
+      </div>
+      <div>
+        <dt>Last check</dt>
+        <dd>{checked}</dd>
+      </div>
+      <div>
+        <dt>Days running</dt>
+        <dd>{days}</dd>
+      </div>
+    </dl>
+
+    <aside class="card example-result" aria-label="Example of a result">
+      <div class="row example-kicker">
+        <span class="pill">Example</span>
+        <span class="lbl">A result, before you type</span>
+      </div>
+      <p class="mono example-spec">reviewdog/action-actionlint@v1</p>
+      <p class="status-line attn">Uses a tag that can be moved</p>
+      <p class="example-detail">
+        A tag is a pointer. Pinning locks this line to the commit it runs today,
+        so a later move cannot change the code under you.
+      </p>
+    </aside>
+
+    <div class="card why">
+      <div class="row why-row">
+        <div>
           <h2 class="h3">Why this matters</h2>
-          <p class="u-df9b7173">
+          <p class="why-copy">
             A tag like <span class="mono">@v4</span> is a pointer. Its owner, or
             anyone who takes over their account, can point it at different code
             tonight. Your workflow file won't change, and your next run will
@@ -80,16 +111,12 @@ const tipSeq = Math.max(0, data.chainLength - 1);
 
     {
       latest && (
-        <div class="row u-d9f14975">
-          <span class="lbl">Latest real move:</span>
-          <a class="u-de00808e"
-            href={`/a/${latest.repo}/${latest.tag}`}
-           
-          >
-            {latest.repo} {latest.tag} {latest.what.toLowerCase()}, {latest.ago}{' '}
-            ago
+        <p class="latest-move">
+          <span class="lbl">Latest real move. </span>
+          <a href={`/a/${latest.repo}/${latest.tag}`}>
+            {latest.repo} {latest.tag} {latest.what.toLowerCase()}, {latest.ago} ago
           </a>
-        </div>
+        </p>
       )
     }
   </div>
