@@ -98,12 +98,13 @@ export function decideRebuild(opts: {
   const next = normalizeState(opts.state, opts.now);
 
   if (next.count >= MAX_REBUILDS_PER_DAY) {
-    return {
+    const capped: RebuildDecision = {
       shouldRebuild: false,
       skipReason: `daily_cap count=${next.count} max=${MAX_REBUILDS_PER_DAY}`,
       nextState: next,
-      newestHeadAt: opts.newestHeadAt ?? undefined,
     };
+    if (opts.newestHeadAt) capped.newestHeadAt = opts.newestHeadAt;
+    return capped;
   }
 
   if (opts.mode === "after_seal") {
@@ -132,12 +133,13 @@ export function decideRebuild(opts: {
   }
 
   // scheduled
-  return {
+  const scheduled: RebuildDecision = {
     shouldRebuild: true,
     reason: "scheduled",
     nextState: next,
-    newestHeadAt: opts.newestHeadAt ?? undefined,
   };
+  if (opts.newestHeadAt) scheduled.newestHeadAt = opts.newestHeadAt;
+  return scheduled;
 }
 
 export async function fetchNewestHeadAt(

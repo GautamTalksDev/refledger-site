@@ -35,6 +35,12 @@ jobs:
       - name: Fetch ledger data
         run: npm run fetch-data
 
+      - name: Typecheck
+        run: |
+          npm run typecheck
+          npm --prefix watchdog ci
+          npm --prefix watchdog run typecheck
+
       - name: Unit tests, conformance vectors, and property tests
         run: npm test
 

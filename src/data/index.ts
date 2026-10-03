@@ -31,6 +31,7 @@ import {
   type RepoView,
   type Seal,
   type SignedHead,
+  type SkipReason,
   type TagBindingEvent,
   type TagTimeline,
   type TagTip,
@@ -146,9 +147,7 @@ function newestOkWithRefs(observations: Observation[]): Map<string, Observation>
   return map;
 }
 
-function classifySkip(reason: Observation['outcome'] extends { type: 'skipped'; reason: infer R }
-  ? R
-  : never): RecordedGap['kind'] {
+function classifySkip(reason: SkipReason): RecordedGap['kind'] {
   if (reason === 'budget_exhausted') return 'budget_exhausted';
   if (reason === 'secondary_limit_backoff') return 'secondary_limit_backoff';
   if (reason === 'shutdown_mid_sweep') return 'shutdown_mid_sweep';

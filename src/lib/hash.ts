@@ -7,6 +7,16 @@ function toBytes(input: Uint8Array | string): Uint8Array {
   return input;
 }
 
+/**
+ * WebCrypto's BufferSource is typed against ArrayBuffer only. Copy into a
+ * fresh ArrayBuffer-backed view so SharedArrayBuffer-backed inputs are safe.
+ */
+function toBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
 function bytesToHex(bytes: Uint8Array): string {
   let hex = '';
   for (let i = 0; i < bytes.length; i++) {
@@ -26,7 +36,10 @@ async function nodeHash(
 export async function sha256Hex(input: Uint8Array | string): Promise<string> {
   const bytes = toBytes(input);
   if (globalThis.crypto?.subtle) {
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-256',
+      toBufferSource(bytes),
+    );
     return bytesToHex(new Uint8Array(digest));
   }
   return nodeHash('sha256', bytes);
@@ -35,7 +48,10 @@ export async function sha256Hex(input: Uint8Array | string): Promise<string> {
 export async function sha512Hex(input: Uint8Array | string): Promise<string> {
   const bytes = toBytes(input);
   if (globalThis.crypto?.subtle) {
-    const digest = await globalThis.crypto.subtle.digest('SHA-512', bytes);
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-512',
+      toBufferSource(bytes),
+    );
     return bytesToHex(new Uint8Array(digest));
   }
   return nodeHash('sha512', bytes);

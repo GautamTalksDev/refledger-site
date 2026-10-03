@@ -6,6 +6,13 @@
 import { canonicalJson } from './canonical';
 import { entryHash, hexToBytes, keyId } from './hash';
 
+/** ArrayBuffer-backed copy for WebCrypto BufferSource typing. */
+function toBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
 /** Genesis predecessor: sha256: + sixty-four ASCII zeros. */
 export const GENESIS_PREV =
   'sha256:0000000000000000000000000000000000000000000000000000000000000000';
@@ -177,12 +184,17 @@ export async function verifyEd25519(
     try {
       const key = await globalThis.crypto.subtle.importKey(
         'raw',
-        pk,
+        toBufferSource(pk),
         { name: 'Ed25519' },
         false,
         ['verify'],
       );
-      return await globalThis.crypto.subtle.verify('Ed25519', key, sig, msg);
+      return await globalThis.crypto.subtle.verify(
+        'Ed25519',
+        key,
+        toBufferSource(sig),
+        toBufferSource(msg),
+      );
     } catch {
       // Fall through to Node crypto when WebCrypto rejects Ed25519.
     }
