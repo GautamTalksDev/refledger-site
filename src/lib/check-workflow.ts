@@ -63,6 +63,8 @@ export type LedgerLookup = {
   tagsByCommitNow: Map<string, Map<string, string[]>>;
   /** repo -> commit (lowercase) -> tags that pointed there at any time in our history */
   tagsByCommitEver: Map<string, Map<string, string[]>>;
+  /** repo -> tag -> past commits (wire payload; optional on hand-built test ledgers) */
+  historyByTag?: Map<string, Map<string, string[]>>;
   /** ISO or ms of watch start for "has not moved since" copy */
   watchedSinceMs: number;
   nowMs: number;
