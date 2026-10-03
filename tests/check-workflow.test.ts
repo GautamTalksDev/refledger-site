@@ -2,14 +2,58 @@ import { describe, expect, it } from 'vitest';
 import {
   assess,
   fixedFiles,
+  formatTagList,
   localSkipLabel,
   orderResults,
   parseFiles,
+  preferExactTag,
   type LedgerLookup,
   type ParsedUses,
 } from '../src/lib/check-workflow';
 
+const CHECKOUT_V7 =
+  '3d3c42e5aac5ba805825da76410c181273ba90b1';
+const CHECKOUT_OLD =
+  '11bd71901bbe5b1630ceea73d27597364c9af683';
+const MOVED_FROM =
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 function ledger(partial: Partial<LedgerLookup> = {}): LedgerLookup {
+  const currentByTag = new Map<string, Map<string, string>>([
+    [
+      'actions/checkout',
+      new Map([
+        ['v7', CHECKOUT_V7],
+        ['v7.0.1', CHECKOUT_V7],
+        ['v4.2.2', CHECKOUT_OLD],
+      ]),
+    ],
+    [
+      'reviewdog/action-actionlint',
+      new Map([['v1', '13465d02abcd1234abcd1234abcd1234abcd1234'.slice(0, 40)]]),
+    ],
+  ]);
+  const tagsByCommitNow = new Map<string, Map<string, string[]>>([
+    [
+      'actions/checkout',
+      new Map([
+        [CHECKOUT_V7, ['v7', 'v7.0.1']],
+        [CHECKOUT_OLD, ['v4.2.2']],
+      ]),
+    ],
+  ]);
+  const tagsByCommitEver = new Map<string, Map<string, string[]>>([
+    [
+      'actions/checkout',
+      new Map([
+        [CHECKOUT_V7, ['v7', 'v7.0.1']],
+        [CHECKOUT_OLD, ['v4.2.2']],
+        // v7 once pointed at MOVED_FROM, then moved on to CHECKOUT_V7
+        [MOVED_FROM, ['v7']],
+      ]),
+    ],
+  ]);
+
   return {
     watched: new Set(['actions/checkout', 'reviewdog/action-actionlint']),
     moves: new Map([
@@ -30,15 +74,28 @@ function ledger(partial: Partial<LedgerLookup> = {}): LedgerLookup {
         ]),
       ],
     ]),
-    known: new Map([
-      [
-        '11bd71901bbe5b1630ceea73d27597364c9af683',
-        'v4.2.2',
-      ],
-    ]),
+    currentByTag,
+    tagsByCommitNow,
+    tagsByCommitEver,
     watchedSinceMs: Date.UTC(2026, 8, 29, 18, 53),
     nowMs: Date.UTC(2026, 9, 2, 16, 20),
     ...partial,
+  };
+}
+
+function shaItem(
+  over: Partial<ParsedUses> & Pick<ParsedUses, 'ref' | 'comment'>,
+): ParsedUses {
+  return {
+    file: 'ci.yml',
+    line: 1,
+    raw: `      - uses: actions/checkout@${over.ref} # ${over.comment}`,
+    indent: '      - ',
+    spec: `actions/checkout@${over.ref}`,
+    target: 'actions/checkout',
+    key: 'actions/checkout',
+    kind: 'sha',
+    ...over,
   };
 }
 
@@ -95,26 +152,100 @@ jobs:
   });
 });
 
-describe('assess', () => {
-  it('flags wrong pin comments', () => {
-    const item: ParsedUses = {
-      file: 'r.yml',
-      line: 1,
-      raw: '      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.1.0',
-      indent: '      - ',
-      spec: 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
-      target: 'actions/checkout',
-      key: 'actions/checkout',
-      ref: '11bd71901bbe5b1630ceea73d27597364c9af683',
-      comment: 'v4.1.0',
-      kind: 'sha',
-    };
-    const r = assess(item, null, ledger());
+describe('preferExactTag / formatTagList', () => {
+  it('prefers the most specific version tag', () => {
+    expect(preferExactTag(['v7', 'v7.0.1', 'v7.0'])).toBe('v7.0.1');
+    expect(formatTagList(['v7', 'v7.0.1'])).toBe('v7.0.1 and v7');
+  });
+});
+
+describe('assess pin comments', () => {
+  it('accepts a floating tag comment when that tag still points at the commit', () => {
+    const r = assess(
+      shaItem({ ref: CHECKOUT_V7, comment: 'v7' }),
+      null,
+      ledger(),
+    );
+    expect(r.attn).toBe(false);
+    expect(r.status).toBe('Pinned to a commit. Nothing to do.');
+    expect(r.detail).toContain('v7.0.1');
+    expect(r.detail).toContain('exact version');
+    expect(r.fix).toBeNull();
+    expect(r.status).not.toMatch(/wrong/i);
+    expect(r.detail).not.toMatch(/\bnever\b/i);
+  });
+
+  it('accepts an exact tag comment on its current commit', () => {
+    const r = assess(
+      shaItem({ ref: CHECKOUT_V7, comment: 'v7.0.1' }),
+      null,
+      ledger(),
+    );
+    expect(r.attn).toBe(false);
+    expect(r.status).toBe('Pinned to a commit. Nothing to do.');
+    expect(r.fix).toBeNull();
+    expect(r.detail).not.toContain('exact version');
+  });
+
+  it('reports a floating tag that moved on as information, not an error', () => {
+    const r = assess(
+      shaItem({ ref: MOVED_FROM, comment: 'v7' }),
+      null,
+      ledger(),
+    );
+    expect(r.attn).toBe(false);
+    expect(r.fix).toBeNull();
+    expect(r.status).toMatch(/has moved on since/);
+    expect(r.status).not.toMatch(/wrong/i);
+    expect(r.detail).not.toMatch(/\bnever\b/i);
+  });
+
+  it('flags a genuinely wrong comment without saying never', () => {
+    const r = assess(
+      shaItem({ ref: CHECKOUT_OLD, comment: 'v4.1.0' }),
+      null,
+      ledger(),
+    );
     expect(r.attn).toBe(true);
     expect(r.status).toBe('Pinned, but the comment is wrong');
+    expect(r.detail).toContain('since we started watching on 29 September');
+    expect(r.detail).toContain('v4.2.2');
+    expect(r.detail).not.toMatch(/\bnever\b/i);
     expect(r.fix).toContain('# v4.2.2');
   });
 
+  it('for unwatched actions only checks current resolution', () => {
+    const item: ParsedUses = {
+      file: 'ci.yml',
+      line: 1,
+      raw: `      - uses: acme/tool@${CHECKOUT_V7} # v1`,
+      indent: '      - ',
+      spec: `acme/tool@${CHECKOUT_V7}`,
+      target: 'acme/tool',
+      key: 'acme/tool',
+      ref: CHECKOUT_V7,
+      comment: 'v1',
+      kind: 'sha',
+    };
+    const ok = assess(item, null, ledger(), { commentSha: CHECKOUT_V7 });
+    expect(ok.attn).toBe(false);
+    expect(ok.status).toBe('Pinned to a commit. Nothing to do.');
+
+    const bad = assess(item, null, ledger(), {
+      commentSha: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    });
+    expect(bad.attn).toBe(true);
+    expect(bad.status).toBe('Pinned, but the comment is wrong');
+    expect(bad.detail).toContain('does not point at this commit today');
+    expect(bad.detail).not.toMatch(/started watching|never|history/i);
+
+    const unknown = assess(item, null, ledger(), { commentSha: null });
+    expect(unknown.attn).toBe(false);
+    expect(unknown.status).toBe('Pinned to a commit. Nothing to do.');
+  });
+});
+
+describe('assess', () => {
   it('reports moved watched tags', () => {
     const item: ParsedUses = {
       file: 'c.yml',

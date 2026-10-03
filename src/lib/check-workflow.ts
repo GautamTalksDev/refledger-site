@@ -57,11 +57,25 @@ export type LedgerLookup = {
   watched: Set<string>;
   /** repo -> tag -> move */
   moves: Map<string, Map<string, MoveInfo>>;
-  /** full sha -> known version comment */
-  known: Map<string, string>;
+  /** repo -> tag -> current pin commit (lowercase) */
+  currentByTag: Map<string, Map<string, string>>;
+  /** repo -> commit (lowercase) -> tags currently at that commit */
+  tagsByCommitNow: Map<string, Map<string, string[]>>;
+  /** repo -> commit (lowercase) -> tags that pointed there at any time in our history */
+  tagsByCommitEver: Map<string, Map<string, string[]>>;
+  /** repo -> tag -> past commits (wire payload; optional on hand-built test ledgers) */
+  historyByTag?: Map<string, Map<string, string[]>>;
   /** ISO or ms of watch start for "has not moved since" copy */
   watchedSinceMs: number;
   nowMs: number;
+};
+
+export type AssessOptions = {
+  /**
+   * For unwatched actions: GitHub resolution of the pin comment tag today.
+   * Omitted or null means we could not resolve it; do not claim a mismatch.
+   */
+  commentSha?: string | null;
 };
 
 /**
@@ -177,7 +191,7 @@ function ago(ms: number, nowMs: number): string {
   return Math.round(h / 24) + ' days';
 }
 
-function formatWatchStart(ms: number): string {
+export function formatWatchStart(ms: number): string {
   const d = new Date(ms);
   const months = [
     'January',
@@ -194,6 +208,145 @@ function formatWatchStart(ms: number): string {
     'December',
   ];
   return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
+
+/** Prefer the most specific version-like tag (v7.0.1 over v7.0 over v7). */
+export function preferExactTag(tags: string[]): string | null {
+  const versionish = tags.filter((t) => /^v?\d/.test(t));
+  if (!versionish.length) return null;
+  const ranked = [...versionish].sort((a, b) => {
+    const da = a.replace(/^v/, '').split('.').length;
+    const db = b.replace(/^v/, '').split('.').length;
+    if (da !== db) return db - da;
+    return b.length - a.length;
+  });
+  return ranked[0] ?? null;
+}
+
+export function formatTagList(tags: string[]): string {
+  const sorted = [...new Set(tags)].sort((a, b) => {
+    const exact = preferExactTag([a, b]);
+    if (exact === a) return -1;
+    if (exact === b) return 1;
+    return a.localeCompare(b);
+  });
+  if (sorted.length === 0) return '';
+  if (sorted.length === 1) return sorted[0]!;
+  if (sorted.length === 2) return `${sorted[0]} and ${sorted[1]}`;
+  return `${sorted.slice(0, -1).join(', ')}, and ${sorted[sorted.length - 1]}`;
+}
+
+function tagsNow(ledger: LedgerLookup, repo: string, sha: string): string[] {
+  return ledger.tagsByCommitNow.get(repo)?.get(sha.toLowerCase()) ?? [];
+}
+
+function tagsEver(ledger: LedgerLookup, repo: string, sha: string): string[] {
+  return ledger.tagsByCommitEver.get(repo)?.get(sha.toLowerCase()) ?? [];
+}
+
+function currentTagCommit(
+  ledger: LedgerLookup,
+  repo: string,
+  tag: string,
+): string | undefined {
+  return ledger.currentByTag.get(repo)?.get(tag);
+}
+
+function assessPinnedComment(
+  item: ParsedUses,
+  ledger: LedgerLookup,
+  opts: AssessOptions,
+): Pick<AssessResult, 'status' | 'detail' | 'fix' | 'attn'> {
+  const sha = item.ref!.toLowerCase();
+  const comment = (item.comment || '').trim();
+  const repo = item.key!;
+  const watched = ledger.watched.has(repo);
+  const now = tagsNow(ledger, repo, sha);
+  const exact = preferExactTag(now);
+
+  if (!comment) {
+    let detail = 'This line always runs the same code.';
+    if (watched && exact) {
+      detail += ` You could name the exact version, ${exact}, so updates read clearly.`;
+    }
+    return {
+      status: 'Pinned to a commit. Nothing to do.',
+      detail,
+      fix: null,
+      attn: false,
+    };
+  }
+
+  if (!watched) {
+    const resolved = opts.commentSha?.toLowerCase() ?? null;
+    if (resolved && resolved === sha) {
+      return {
+        status: 'Pinned to a commit. Nothing to do.',
+        detail: 'This line always runs the same code.',
+        fix: null,
+        attn: false,
+      };
+    }
+    if (resolved && resolved !== sha) {
+      return {
+        status: 'Pinned, but the comment is wrong',
+        detail: `${comment} does not point at this commit today. The code cannot move, but the label will mislead whoever updates it next.`,
+        // No suggested rewrite: we do not invent a version name for unwatched actions.
+        fix: null,
+        attn: true,
+      };
+    }
+    return {
+      status: 'Pinned to a commit. Nothing to do.',
+      detail: 'This line always runs the same code.',
+      fix: null,
+      attn: false,
+    };
+  }
+
+  const current = currentTagCommit(ledger, repo, comment);
+  if (current === sha) {
+    let detail = 'This line always runs the same code.';
+    if (exact && exact !== comment) {
+      detail += ` You could name the exact version, ${exact}, so updates read clearly.`;
+    }
+    return {
+      status: 'Pinned to a commit. Nothing to do.',
+      detail,
+      fix: null,
+      attn: false,
+    };
+  }
+
+  const ever = tagsEver(ledger, repo, sha);
+  if (ever.includes(comment)) {
+    const named = formatTagList(now);
+    const status = named
+      ? `Pinned. ${comment} has moved on since; this commit is ${named}`
+      : `Pinned. ${comment} has moved on since.`;
+    return {
+      status,
+      detail:
+        'The code cannot move. The comment names a tag that has moved on since we started watching.',
+      fix: null,
+      attn: false,
+    };
+  }
+
+  const named = formatTagList(now);
+  const since = formatWatchStart(ledger.watchedSinceMs);
+  let detail = `${comment} has not pointed at this commit since we started watching on ${since}.`;
+  if (named) detail += ` This commit is ${named}.`;
+  detail +=
+    ' The code cannot move, but the label will mislead whoever updates it next.';
+  return {
+    status: 'Pinned, but the comment is wrong',
+    detail,
+    fix: item.target
+      ? `${item.target}@${item.ref}${exact ? ` # ${exact}` : named ? ` # ${now[0]}` : ''}`
+      : null,
+    attn: true,
+  };
 }
 
 export type ResultGroup = 'moved' | 'movable' | 'pinned' | 'local';
@@ -242,6 +395,7 @@ export function assess(
   item: ParsedUses,
   sha: string | null,
   ledger: LedgerLookup,
+  opts: AssessOptions = {},
 ): AssessResult {
   const r: AssessResult = {
     item,
@@ -260,18 +414,13 @@ export function assess(
     return r;
   }
 
-  if (item.kind === 'sha' && item.ref && item.target) {
-    const known = ledger.known.get(item.ref.toLowerCase()) ?? ledger.known.get(item.ref);
-    if (known && item.comment && item.comment !== known) {
-      r.status = 'Pinned, but the comment is wrong';
-      r.detail = `This commit was never ${item.comment}. It is ${known}. The code cannot move, but the label will mislead whoever updates it next.`;
-      r.fix = `${item.target}@${item.ref} # ${known}`;
-      r.attn = true;
-    } else {
-      r.status = 'Pinned to a commit. Nothing to do.';
-      r.detail = 'This line always runs the same code.';
-    }
-    if (w && item.key) {
+  if (item.kind === 'sha' && item.ref && item.target && item.key) {
+    const pin = assessPinnedComment(item, ledger, opts);
+    r.status = pin.status;
+    r.detail = pin.detail;
+    r.fix = pin.fix;
+    r.attn = pin.attn;
+    if (w) {
       const href = actionHistoryHref(item.key);
       if (href) r.link = { href, text: 'See its history' };
     }

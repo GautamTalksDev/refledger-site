@@ -106,6 +106,32 @@ test('live check: actions/checkout', async ({ page }) => {
   });
 });
 
+test('paste check: multi-tag pin comment is not wrong', async ({ page }) => {
+  test.setTimeout(60_000);
+  // Same pin as campus-experts/ce-badge-universe26-hack-OFFICIAL: checkout SHA
+  // that currently carries both v7 and v7.0.1. Paste avoids GitHub rate limits
+  // in CI while still exercising the live ledger lookup in the browser.
+  const yaml = `name: ci
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+`;
+  await page.goto('/paste');
+  await page.locator('textarea').fill(yaml);
+  await page.getByRole('button', { name: /Check this file/i }).click();
+  const root = page.locator('#check-root');
+  await expect(root).toContainText(
+    /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/i,
+    { timeout: 30_000 },
+  );
+  await expect(root).not.toContainText('Pinned, but the comment is wrong');
+  await expect(root).not.toContainText(/was never/i);
+  await expect(root).toContainText(/Pinned to a commit|Nothing to do/i);
+});
+
 test('live check: facebook/react', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/check?repo=facebook/react');

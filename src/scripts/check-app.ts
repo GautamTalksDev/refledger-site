@@ -106,16 +106,19 @@ function renderState(root: HTMLElement, st: CheckState) {
   const risky = res.filter((r) =>
     ['tag', 'branch', 'short'].includes(r.item.kind),
   ).length;
+  const wrongComments = res.filter(
+    (r) => r.item.kind === 'sha' && r.attn,
+  ).length;
   const fixable = st.results.filter((r) => r.fix).length;
   let head: string;
   if (res.length === 0) head = "We didn't find any actions to check.";
-  else if (risky === 0 && fixable === 0)
+  else if (risky === 0 && wrongComments === 0)
     head = `All ${res.length} of your actions are pinned. Nothing can change under you.`;
   else if (risky === 0)
     head =
       'Your actions are pinned, but ' +
-      fixable +
-      (fixable === 1 ? ' comment is' : ' comments are') +
+      wrongComments +
+      (wrongComments === 1 ? ' comment is' : ' comments are') +
       ' wrong.';
   else
     head = `${risky} of your ${res.length} actions can change without you knowing.`;
@@ -190,7 +193,7 @@ export async function runCheck(
     renderState(root, state);
   };
 
-  const finish = (
+  const finish = async (
     files: WorkflowFile[],
     items: ReturnType<typeof parseFiles>,
     shaOf: (it: (typeof items)[0]) => string | null,
@@ -201,8 +204,47 @@ export async function runCheck(
     say(
       `Found ${items.filter((i) => i.kind !== 'local').length} actions in ${files.length}${files.length === 1 ? ' file' : ' files'}`,
     );
+    // Unwatched pin comments: resolve the named tag today. Watched actions use
+    // the ledger; we must not invent history for repos we do not watch.
+    const commentShas: Record<string, string> = {};
+    if (!isExample) {
+      const needComment = items.filter(
+        (it) =>
+          it.kind === 'sha' &&
+          it.key &&
+          it.comment?.trim() &&
+          !ledger.watched.has(it.key),
+      );
+      const uniq: Record<string, { key: string; ref: string }> = {};
+      for (const it of needComment) {
+        const tag = it.comment!.trim();
+        uniq[`${it.key}@${tag}`] = { key: it.key!, ref: tag };
+      }
+      const keys = Object.keys(uniq);
+      if (keys.length) {
+        say(
+          `Checking ${keys.length}${keys.length === 1 ? ' pin comment' : ' pin comments'} on unwatched actions`,
+        );
+        await Promise.all(
+          keys.map((k) =>
+            resolveSha(uniq[k])
+              .then((s) => {
+                commentShas[k] = s;
+              })
+              .catch(() => {}),
+          ),
+        );
+      }
+    }
     say('Checking each one against the ledger');
-    const results = items.map((it) => assess(it, shaOf(it), ledger));
+    const results = items.map((it) => {
+      const comment = it.comment?.trim();
+      const commentKey =
+        it.kind === 'sha' && it.key && comment ? `${it.key}@${comment}` : '';
+      return assess(it, shaOf(it), ledger, {
+        commentSha: commentKey ? commentShas[commentKey] ?? null : null,
+      });
+    });
     const unresolved = items.filter(
       (it) =>
         ['tag', 'branch', 'short'].includes(it.kind) && !shaOf(it),
@@ -226,7 +268,7 @@ export async function runCheck(
     const files = EXAMPLE_FILES;
     const items = parseFiles(files);
     await new Promise((r) => setTimeout(r, 400));
-    finish(
+    await finish(
       files,
       items,
       (it) => EXAMPLE_SHAS[`${it.key}@${it.ref}`] || null,
@@ -276,7 +318,7 @@ export async function runCheck(
             .catch(() => {}),
         ),
       );
-      finish(
+      await finish(
         source.files,
         items,
         (it) => shas[`${it.key}@${it.ref}`] || null,
@@ -363,7 +405,7 @@ export async function runCheck(
           .catch(() => {}),
       ),
     );
-    finish(files, items, (it) => shas[`${it.key}@${it.ref}`] || null, false, '', repo);
+    await finish(files, items, (it) => shas[`${it.key}@${it.ref}`] || null, false, '', repo);
   } catch (err) {
     if (err instanceof LimitError) {
       failLimit(err);
