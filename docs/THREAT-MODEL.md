@@ -121,7 +121,12 @@ ETag journal, object cache, pending publishes on `data` branch under `state/`. C
 
 **Capability:** Push access to a watched action; can move tags, delete tags, rewrite history.
 
-**Goal:** Hide evidence of supply chain attack (e.g., move 346 tags to backdoor, then rewind them after compromise discovered).
+**Goal:** Hide evidence of supply chain attack (e.g., move nearly all
+version tags to a backdoor, then rewind them after the compromise is
+discovered). See CVE-2025-30066 and the StepSecurity write-up
+(https://www.stepsecurity.io/blog/harden-runner-detection-tj-actions-changed-files-action-is-compromised),
+which state that most existing release tags of tj-actions/changed-files
+were retroactively updated; they do not publish an exact tag count.
 
 **Refledger mitigations:**
 - Every tag movement recorded with observation window timestamp
@@ -368,7 +373,7 @@ ETag journal, object cache, pending publishes on `data` branch under `state/`. C
 
 **Attack:**
 1. Compromise account (phishing, token theft, insider)
-2. Force-push 346 existing exact-version tags to one malicious commit
+2. Force-push nearly all existing exact-version tags to one malicious commit
 3. Workflows using those tags execute backdoor (secrets printed to logs)
 4. Attacker collects secrets from build logs
 5. (Optionally) rewind tags to hide evidence
@@ -376,7 +381,7 @@ ETag journal, object cache, pending publishes on `data` branch under `state/`. C
 **Refledger response:**
 1. Next poll (within 5 minutes) sees tags moved
 2. Each Move classified as High severity (exact tag, content change)
-3. Batch correlation emitted (346 tags to same commit in 5 minute window)
+3. Batch correlation emitted (many tags to same commit in 5 minute window)
 4. Correlation logged as separate entry pointing at Moves
 5. If tags rewound, second batch of Moves recorded
 6. Signed daily head locks observations

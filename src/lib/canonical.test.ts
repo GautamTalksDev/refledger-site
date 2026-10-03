@@ -3,22 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { canonicalJson } from './canonical';
 import { entryHash } from './hash';
+import { parseJsonPreserveInts } from './json-parse';
 
 const VECTORS_DIR = join(process.cwd(), 'tests', 'vectors');
-
-/** Parse JSON preserving integers beyond MAX_SAFE_INTEGER as bigint (Node 22+). */
-function parseJsonPreserveInts(text: string): unknown {
-  return JSON.parse(text, (_key, value, context) => {
-    if (typeof value === 'number' && !Number.isSafeInteger(value)) {
-      const src =
-        context && typeof context === 'object' && 'source' in context
-          ? String((context as { source: string }).source)
-          : null;
-      if (src && /^-?\d+$/.test(src)) return BigInt(src);
-    }
-    return value;
-  });
-}
 
 function listJsonFiles(dir: string): string[] {
   return readdirSync(dir)

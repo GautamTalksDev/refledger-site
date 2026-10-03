@@ -65,9 +65,8 @@ test('last-checked chip uses build data; stale notice respects clock', async ({
   await page.addInitScript((fixed) => {
     const RealDate = Date;
     class FakeDate extends RealDate {
-      constructor(...args: ConstructorParameters<typeof Date>) {
-        if (args.length === 0) super(fixed);
-        else super(...args);
+      constructor(value?: number | string | Date) {
+        super(arguments.length === 0 ? fixed : value!);
       }
       static now() {
         return fixed;
@@ -82,9 +81,8 @@ test('last-checked chip uses build data; stale notice respects clock', async ({
   await page.addInitScript((fixed) => {
     const RealDate = Date;
     class FakeDate extends RealDate {
-      constructor(...args: ConstructorParameters<typeof Date>) {
-        if (args.length === 0) super(fixed);
-        else super(...args);
+      constructor(value?: number | string | Date) {
+        super(arguments.length === 0 ? fixed : value!);
       }
       static now() {
         return fixed;

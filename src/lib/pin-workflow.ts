@@ -155,8 +155,9 @@ export function analyzeWorkflow(
       continue;
     }
     const repo = `${u.owner}/${u.repo}`;
+    const ref = u.ref;
     const api = apiByRepo.get(repo);
-    const alreadyPinned = isFullSha(u.ref);
+    const alreadyPinned = isFullSha(ref);
 
     if (!api) {
       unwatchedN++;
@@ -176,8 +177,8 @@ export function analyzeWorkflow(
     if (alreadyPinned) {
       const tag = api.tags.find(
         (t) =>
-          t.pin_commit?.toLowerCase() === u.ref.toLowerCase() ||
-          t.current?.commit_sha?.toLowerCase() === u.ref.toLowerCase(),
+          t.pin_commit?.toLowerCase() === ref.toLowerCase() ||
+          t.current?.commit_sha?.toLowerCase() === ref.toLowerCase(),
       );
       const lineRe = new RegExp(
         `uses:\\s*${escapeReg(u.raw)}(?:\\s*#\\s*(\\S+))?`,
@@ -189,7 +190,7 @@ export function analyzeWorkflow(
         const commented = api.tags.find((t) => t.tag === comment);
         if (
           commented?.pin_commit &&
-          commented.pin_commit.toLowerCase() !== u.ref.toLowerCase()
+          commented.pin_commit.toLowerCase() !== ref.toLowerCase()
         ) {
           mismatch = true;
         }
@@ -211,7 +212,7 @@ export function analyzeWorkflow(
         uses: u.raw,
         kind: u.kind,
         watched: true,
-        pin_commit: u.ref,
+        pin_commit: ref,
         version_comment: comment,
         binding_age_hours: age,
         last_move_at: lastMove,
@@ -222,7 +223,7 @@ export function analyzeWorkflow(
       continue;
     }
 
-    const tip = api.tags.find((t) => t.tag === u.ref);
+    const tip = api.tags.find((t) => t.tag === ref);
     const pin = tip?.pin_commit ?? tip?.current?.commit_sha ?? null;
     const age = hoursSince(
       tip?.current?.first_observed ?? tip?.current?.last_observed,
@@ -239,7 +240,7 @@ export function analyzeWorkflow(
 
     let rewrittenUses: string | undefined;
     if (pin) {
-      rewrittenUses = `${repo}@${pin} # ${u.ref}`;
+      rewrittenUses = `${repo}@${pin} # ${ref}`;
       const next = rewritten.replace(
         new RegExp(`uses:\\s*['"]?${escapeReg(u.raw)}['"]?`),
         `uses: ${rewrittenUses}`,
@@ -256,7 +257,7 @@ export function analyzeWorkflow(
       watched: true,
       rewritten: rewrittenUses,
       pin_commit: pin,
-      version_comment: u.ref,
+      version_comment: ref,
       binding_age_hours: age,
       last_move_at: lastMove,
       already_pinned: false,
