@@ -1,6 +1,25 @@
 import type { SiteData } from '../data';
 import type { LedgerLookup, MoveInfo } from './check-workflow';
 
+function tagName(ref: string): string {
+  return ref.replace(/^refs\/tags\//, '');
+}
+
+function addTag(
+  map: Map<string, Set<string>>,
+  sha: string | undefined | null,
+  tag: string,
+): void {
+  if (!sha) return;
+  const key = sha.toLowerCase();
+  let set = map.get(key);
+  if (!set) {
+    set = new Set();
+    map.set(key, set);
+  }
+  set.add(tag);
+}
+
 /** Build browser check lookup from the published ledger snapshot. */
 export function buildLedgerLookup(data: SiteData, nowMs = Date.now()): LedgerLookup {
   const watched = new Set(
@@ -29,15 +48,43 @@ export function buildLedgerLookup(data: SiteData, nowMs = Date.now()): LedgerLoo
     });
   }
 
-  const known = new Map<string, string>();
+  const currentByTag = new Map<string, Map<string, string>>();
+  const tagsByCommitNow = new Map<string, Map<string, string[]>>();
+  const tagsByCommitEver = new Map<string, Map<string, string[]>>();
+
   for (const repo of data.repos) {
+    const byTag = new Map<string, string>();
+    const nowSets = new Map<string, Set<string>>();
+    const everSets = new Map<string, Set<string>>();
+
     for (const t of repo.tags) {
-      const tip = t.tip;
-      if (!tip?.pin_commit) continue;
-      const tag = t.ref.replace(/^refs\/tags\//, '');
-      known.set(tip.pin_commit.toLowerCase(), tag);
-      known.set(tip.pin_commit, tag);
+      const tag = tagName(t.ref);
+      const pin = t.tip?.pin_commit ?? t.tip?.commit_sha ?? null;
+      if (pin) {
+        const sha = pin.toLowerCase();
+        byTag.set(tag, sha);
+        addTag(nowSets, sha, tag);
+        addTag(everSets, sha, tag);
+      }
+      for (const ev of t.events) {
+        if (ev.kind === 'move' || ev.kind === 'recreation') {
+          addTag(everSets, ev.from.commit_sha, tag);
+          addTag(everSets, ev.to.commit_sha, tag);
+        } else if (ev.kind === 'deletion') {
+          addTag(everSets, ev.from.commit_sha, tag);
+        }
+      }
     }
+
+    currentByTag.set(repo.repo, byTag);
+    tagsByCommitNow.set(
+      repo.repo,
+      new Map([...nowSets].map(([sha, set]) => [sha, [...set].sort()])),
+    );
+    tagsByCommitEver.set(
+      repo.repo,
+      new Map([...everSets].map(([sha, set]) => [sha, [...set].sort()])),
+    );
   }
 
   const watchedSinceMs = data.genesisAt
@@ -47,7 +94,9 @@ export function buildLedgerLookup(data: SiteData, nowMs = Date.now()): LedgerLoo
   return {
     watched,
     moves,
-    known,
+    currentByTag,
+    tagsByCommitNow,
+    tagsByCommitEver,
     watchedSinceMs,
     nowMs,
   };
@@ -69,7 +118,9 @@ export type PublicLedgerPayload = {
       }
     >
   >;
-  known: Record<string, string>;
+  currentByTag: Record<string, Record<string, string>>;
+  tagsByCommitNow: Record<string, Record<string, string[]>>;
+  tagsByCommitEver: Record<string, Record<string, string[]>>;
   watchedSinceMs: number;
   nowMs: number;
   latestEcoMove: {
@@ -92,16 +143,48 @@ export function toPublicLedgerPayload(
       moves[repo][tag] = { ...m };
     }
   }
-  const known: Record<string, string> = {};
-  for (const [k, v] of lookup.known) known[k] = v;
+  const currentByTag: PublicLedgerPayload['currentByTag'] = {};
+  for (const [repo, tags] of lookup.currentByTag) {
+    currentByTag[repo] = Object.fromEntries(tags);
+  }
+  const tagsByCommitNow: PublicLedgerPayload['tagsByCommitNow'] = {};
+  for (const [repo, commits] of lookup.tagsByCommitNow) {
+    tagsByCommitNow[repo] = Object.fromEntries(commits);
+  }
+  const tagsByCommitEver: PublicLedgerPayload['tagsByCommitEver'] = {};
+  for (const [repo, commits] of lookup.tagsByCommitEver) {
+    tagsByCommitEver[repo] = Object.fromEntries(commits);
+  }
   return {
     watched: [...lookup.watched],
     moves,
-    known,
+    currentByTag,
+    tagsByCommitNow,
+    tagsByCommitEver,
     watchedSinceMs: lookup.watchedSinceMs,
     nowMs: lookup.nowMs,
     latestEcoMove: latestEco,
   };
+}
+
+function mapOfMapsFromRecord(
+  rec: Record<string, Record<string, string>>,
+): Map<string, Map<string, string>> {
+  const out = new Map<string, Map<string, string>>();
+  for (const [repo, inner] of Object.entries(rec)) {
+    out.set(repo, new Map(Object.entries(inner)));
+  }
+  return out;
+}
+
+function mapOfStringListsFromRecord(
+  rec: Record<string, Record<string, string[]>>,
+): Map<string, Map<string, string[]>> {
+  const out = new Map<string, Map<string, string[]>>();
+  for (const [repo, inner] of Object.entries(rec)) {
+    out.set(repo, new Map(Object.entries(inner)));
+  }
+  return out;
 }
 
 export function fromPublicLedgerPayload(
@@ -118,7 +201,9 @@ export function fromPublicLedgerPayload(
   return {
     watched: new Set(p.watched),
     moves,
-    known: new Map(Object.entries(p.known)),
+    currentByTag: mapOfMapsFromRecord(p.currentByTag ?? {}),
+    tagsByCommitNow: mapOfStringListsFromRecord(p.tagsByCommitNow ?? {}),
+    tagsByCommitEver: mapOfStringListsFromRecord(p.tagsByCommitEver ?? {}),
     watchedSinceMs: p.watchedSinceMs,
     nowMs: p.nowMs,
   };
