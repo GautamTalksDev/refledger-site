@@ -9,8 +9,8 @@ const layout = readFileSync('src/layouts/BaseLayout.astro', 'utf8');
 
 describe('layout regressions', () => {
   it('names the disabled tip control Newest entry and never a bare Entry', () => {
-    expect(entry).toMatch(/>\s*Newest entry\s*<\/button>/);
-    expect(entry).toMatch(/>\s*Oldest entry\s*<\/button>/);
+    expect(entry).toMatch(/disabled[^>]*>\s*Newest entry/);
+    expect(entry).toMatch(/disabled[^>]*>\s*Oldest entry/);
     expect(entry).not.toMatch(/>\s*Entry\s*<\/(span|button)>/);
   });
 
