@@ -15,8 +15,17 @@ permissions:
   contents: read
 
 jobs:
+  skip-private:
+    name: Wait for public repository
+    if: ${{ github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: CodeQL needs a public repository or GHAS
+        run: echo "CodeQL analysis is ready and will run when this repository is public (or GHAS is enabled)."
+
   analyze:
     name: Analyze
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:

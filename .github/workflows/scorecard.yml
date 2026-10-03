@@ -1,4 +1,4 @@
-# OpenSSF Scorecard. Meaningful results once the repository is public.
+# OpenSSF Scorecard. Runs analysis once the repository is public.
 name: Scorecard
 
 on:
@@ -12,8 +12,17 @@ on:
 permissions: read-all
 
 jobs:
+  skip-private:
+    name: Wait for public repository
+    if: ${{ github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Scorecard needs a public repository
+        run: echo "Scorecard analysis is ready and will run when this repository is public."
+
   analysis:
     name: Scorecard analysis
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
