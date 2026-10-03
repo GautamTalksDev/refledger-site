@@ -11,8 +11,6 @@ preview_urls = false
 crons = ["*/15 * * * *", "7 */3 * * *"]
 
 # Required: persistent rebuild counters and after-seal state across isolates.
-# Create with: wrangler kv namespace create WATCHDOG_STATE
-# Then paste the id below.
 [[kv_namespaces]]
 binding = "STATE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "454d55314eaa49a88a875a5f21a550d3"
