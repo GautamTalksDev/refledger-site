@@ -25,16 +25,16 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap narrow" style="padding-top:88px">
+  <div class="wrap narrow u-5edb7037">
     <h1 class="h1" tabindex="-1">
       Is your workflow running the code you think it is?
     </h1>
-    <p class="lede" style="margin-top:24px;max-width:640px">
+    <p class="lede u-467b108f">
       Enter a public GitHub repository. We check every action it uses, tell you
       which ones can change without you knowing, and give you the fix.
     </p>
-    <form class="bigform" style="margin-top:40px" action="/check" method="get">
-      <label for="repo" class="lbl" style="flex-basis:100%">Repository</label>
+    <form class="bigform u-d9f14975" action="/check" method="get">
+      <label for="repo" class="lbl u-3717df59">Repository</label>
       <input
         id="repo"
         name="repo"
@@ -47,25 +47,25 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       />
       <button type="submit" class="btn b-blue">Check</button>
     </form>
-    <p class="ins muted" style="margin-top:14px;font-size:13.5px">
+    <p class="ins muted u-0f354534">
       Runs in your browser. Nothing is stored.
-      <a href="/paste" class="linkbtn" style="text-decoration:underline"
+      <a href="/paste" class="linkbtn u-36ec7417"
         >Paste a workflow instead</a
       >
       or
-      <a href="/check?example=1" class="linkbtn" style="text-decoration:underline"
+      <a href="/check?example=1" class="linkbtn u-36ec7417"
         >try an example</a
       >.
     </p>
 
-    <div class="card" style="margin-top:96px;padding:28px 30px">
+    <div class="card u-2f9d4901">
       <div
-        class="row"
-        style="justify-content:space-between;align-items:flex-start;gap:24px"
+        class="row u-6c6195d3"
+       
       >
-        <div style="max-width:560px">
+        <div class="u-765d57b5">
           <h2 class="h3">Why this matters</h2>
-          <p style="margin:8px 0 0;color:var(--ink2)">
+          <p class="u-df9b7173">
             A tag like <span class="mono">@v4</span> is a pointer. Its owner, or
             anyone who takes over their account, can point it at different code
             tonight. Your workflow file won't change, and your next run will
@@ -79,11 +79,11 @@ const tipSeq = Math.max(0, data.chainLength - 1);
 
     {
       latest && (
-        <div style="margin-top:40px" class="row">
+        <div class="row u-d9f14975">
           <span class="lbl">Latest real move:</span>
-          <a
+          <a class="u-de00808e"
             href={`/a/${latest.repo}/${latest.tag}`}
-            style="font-size:15px"
+           
           >
             {latest.repo} {latest.tag} {latest.what.toLowerCase()}, {latest.ago}{' '}
             ago

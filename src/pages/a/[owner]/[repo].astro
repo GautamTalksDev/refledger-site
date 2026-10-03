@@ -138,21 +138,21 @@ if (archiveTag && repo.watched_since) {
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap" style="padding-top:56px">
+  <div class="wrap u-ed929bb2">
     <nav aria-label="Breadcrumb" class="lbl">
-      <a href="/moved" style="color:inherit">Watched actions</a> / {owner}
+      <a class="u-1c9c449e" href="/moved">Watched actions</a> / {owner}
       {repo.canary && (
-        <span class="pill" style="margin-left:8px">Canary</span>
+        <span class="pill u-5dd2a678">Canary</span>
       )}
     </nav>
     <h1
-      class="h1"
+      class="h1 u-57fae8db"
       tabindex="-1"
-      style="margin-top:14px;font-size:clamp(40px,5.6vw,80px);word-break:break-word"
+     
     >
       {repoKey}
     </h1>
-    <p class="lede" style="margin-top:20px;max-width:720px">
+    <p class="lede u-c11c19bf">
       {
         movedTags.length && latestMove ? (
           <>
@@ -171,33 +171,35 @@ if (archiveTag && repo.watched_since) {
     </p>
 
     <dl
-      class="ins"
-      style="margin:32px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)"
+      class="ins u-b2405114"
+     
     >
-      <div style="padding:16px 0">
+      <div class="u-45b0af64">
         <dt class="lbl">Watching since</dt>
-        <dd style="margin:6px 0 0">
+        <dd class="u-84f4c591">
           {repo.watched_since ? `${fmtUtc(repo.watched_since)} UTC` : 'unknown'}
         </dd>
       </div>
-      <div style="padding:16px 0">
+      <div class="u-45b0af64">
         <dt class="lbl">Checked</dt>
-        <dd style="margin:6px 0 0">
+        <dd class="u-84f4c591">
           Every 5 minutes ({repo.checks_so_far} so far)
         </dd>
       </div>
-      <div style="padding:16px 0">
+      <div class="u-45b0af64">
         <dt class="lbl">Last change</dt>
-        <dd style="margin:6px 0 0">
+        <dd class="u-84f4c591">
           {repo.last_change_at
             ? `${fmtUtc(repo.last_change_at)} UTC`
             : 'None seen'}
         </dd>
       </div>
-      <div style="padding:16px 0">
+      <div class="u-45b0af64">
         <dt class="lbl">Upstream</dt>
-        <dd style="margin:6px 0 0">
-          <a href={`https://github.com/${repoKey}`}
+        <dd class="u-84f4c591">
+          <a
+            href={`https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoKey.split('/')[1] ?? '')}`}
+            rel="noopener noreferrer"
             >github.com/{repoKey}</a
           >
         </dd>
@@ -206,7 +208,7 @@ if (archiveTag && repo.watched_since) {
 
     {
       movedTags.length > 0 ? (
-        <section style="margin-top:72px">
+        <section class="u-fa08ae21">
           <h2 class="h3">Pin it</h2>
           {repo.tags
             .filter((t) => movedTags.includes(tagFromRef(t.ref)) && t.tip?.pin_commit)
@@ -219,28 +221,28 @@ if (archiveTag && repo.watched_since) {
                 ? agoFrom(new Date(move.recorded_at).getTime(), nowMs)
                 : null;
               return (
-                <div style="margin-top:16px">
+                <div class="u-1b0f4999">
                   <div
-                    class="night row"
-                    style="padding:10px 10px 10px 22px;justify-content:space-between"
+                    class="night row u-5baff73b"
+                   
                   >
                     <span
-                      class="mono"
-                      style="font-size:14.5px;word-break:break-all"
+                      class="mono u-66fe8c75"
+                     
                     >
                       {line}
                     </span>
                     <button
                       type="button"
-                      class="btn small"
-                      style="background:var(--night3);color:var(--ntext)"
+                      class="btn small u-a439c023"
+                     
                       data-copy={line}
                     >
                       Copy
                     </button>
                   </div>
                   {age && (
-                    <p class="lbl" style="margin-top:10px">
+                    <p class="lbl u-d2c171b1">
                       This binding is {age} old. {tag} is recorded in the
                       ledger and may move again.
                     </p>
@@ -250,10 +252,10 @@ if (archiveTag && repo.watched_since) {
             })}
         </section>
       ) : (
-        <section style="margin-top:72px" class="card">
-          <div style="padding:28px 30px">
+        <section class="card u-fa08ae21">
+          <div class="u-dbc9589a">
             <h2 class="h3">Nothing has moved</h2>
-            <p style="margin:8px 0 0;color:var(--ink2)">
+            <p class="u-df9b7173">
               Every tag of this action has pointed at the same commit at every
               check since we started watching. To lock that in for your
               workflow, <a href="/">check your repository</a> and copy the
@@ -266,10 +268,10 @@ if (archiveTag && repo.watched_since) {
 
     {
       moments.length > 0 && archiveTag && (
-        <section style="margin-top:72px" class="card">
-          <div style="padding:28px 30px">
+        <section class="card u-fa08ae21">
+          <div class="u-dbc9589a">
             <h2 class="h3">Ask the archive</h2>
-            <p style="margin:8px 0 0;color:var(--ink2)">
+            <p class="u-df9b7173">
               What did {archiveTag} point at, at a moment in the past? Only a record
               kept at the time can answer. Answers come from{' '}
               <a href={`/api/v1/at/${moments[moments.length - 1]?.date}.json`}
@@ -278,8 +280,8 @@ if (archiveTag && repo.watched_since) {
               and the binding history.
             </p>
             <div
-              class="row"
-              style="margin-top:20px;flex-wrap:wrap;gap:8px"
+              class="row u-c2ca0f5d"
+             
               role="group"
               aria-label="Pick a moment"
               data-archive-moments
@@ -305,20 +307,20 @@ if (archiveTag && repo.watched_since) {
             </div>
             <div
               aria-live="polite"
-              class="row"
-              style="margin-top:22px;align-items:baseline;flex-wrap:wrap;gap:10px"
+              class="row u-0fb3d30d"
+             
             >
-              <span class="ins" style="color:var(--ink2)">{archiveTag} pointed at</span>
+              <span class="ins u-d3799af7">{archiveTag} pointed at</span>
               <span
-                class="mono"
+                class="mono u-edd4855e"
                 id="mo-sha"
-                style="font-size:30px;font-weight:700;color:var(--blue)"
+               
                 >{moments[moments.length - 1]?.sha}</span
               >
-              <span class="ins muted" id="mo-note" style="font-size:14px"
+              <span class="ins muted u-433de30b" id="mo-note"
                 >{moments[moments.length - 1]?.note}</span
               >
-              <span class="ins muted" id="mo-window" style="font-size:14px"
+              <span class="ins muted u-433de30b" id="mo-window"
                 >{moments[moments.length - 1]?.window || ''}</span
               >
             </div>
@@ -329,27 +331,27 @@ if (archiveTag && repo.watched_since) {
 
     {
       events.length > 0 && (
-        <section style="margin-top:72px">
+        <section class="u-fa08ae21">
           <h2 class="h3">History</h2>
           {events.map((m) => (
             <a
               href={`/a/${repoKey}/${m.tag}`}
-              class="paper feedrow"
-              style="margin-top:14px"
+              class="paper feedrow u-d6f2af6e"
+             
             >
-              <span class="ins" style="font-size:14px">
+              <span class="ins u-433de30b">
                 {fmtUtc(m.recorded_at)}
               </span>
-              <span class="mono" style="font-weight:700">
+              <span class="mono u-e3ec02ac">
                 {m.tag}
               </span>
-              <span style="color:var(--ink2)">
+              <span class="u-d3799af7">
                 {m.whatChanged ?? m.event}
               </span>
-              <span class="mono" style="font-size:13px">
+              <span class="mono u-5e0faad2">
                 {m.fromToText ?? ''}
               </span>
-              <span class="ins muted" style="font-size:13px">
+              <span class="ins muted u-5e0faad2">
                 Entry {m.seq}
               </span>
             </a>
@@ -358,7 +360,7 @@ if (archiveTag && repo.watched_since) {
       )
     }
 
-    <p class="lbl" style="margin-top:24px">
+    <p class="lbl u-49fcd855">
       This page says what moved and when. It never says whether an action is
       safe. That call is yours.
     </p>

@@ -20,6 +20,10 @@ playwright/.cache/
 # OS
 .DS_Store
 
+# Local tooling
+.wrangler/
+lighthouse.*/
+
 # Generated at build (npm run prebuild)
 public/verify/
 public/og/

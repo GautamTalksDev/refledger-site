@@ -4,13 +4,15 @@ import { test, expect } from '@playwright/test';
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self'",
   "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self' https://api.github.com https://raw.githubusercontent.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "require-trusted-types-for 'script'",
+  "trusted-types refledger",
 ].join('; ');
 
 async function withCsp(
@@ -28,7 +30,7 @@ async function withCsp(
   await run();
 }
 
-test('check flow works under CSP', async ({ page }) => {
+test('check flow works under strict CSP and Trusted Types', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await withCsp(page, async () => {
@@ -37,7 +39,9 @@ test('check flow works under CSP', async ({ page }) => {
     await expect(page.locator('#check-root')).toContainText(/uses:|Pin|action|workflow/i, {
       timeout: 15_000,
     });
-    expect(errors.filter((e) => /Content Security Policy/i.test(e))).toEqual([]);
+    expect(errors.filter((e) => /Content Security Policy|TrustedHTML|Trusted Type/i.test(e))).toEqual(
+      [],
+    );
   });
 });
 

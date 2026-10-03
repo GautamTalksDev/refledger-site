@@ -24,48 +24,48 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap" style="padding-top:72px">
+  <div class="wrap u-e47c4d83">
     <h1 class="h1" tabindex="-1">
-      Don't trust us.<br /><span style="color:var(--blue)">Check us.</span>
+      Don't trust us.<br /><span class="u-285582c7">Check us.</span>
     </h1>
-    <p class="lede" style="margin-top:22px;max-width:640px">
+    <p class="lede u-aa1a1fba">
       One click replays every entry in the ledger, recomputes every hash and checks every
       signature, in your browser. Nothing to install, nobody to trust.
     </p>
 
-    <div class="night" style="margin-top:44px;padding:32px">
-      <div class="row" style="justify-content:space-between">
+    <div class="night u-9c067595">
+      <div class="row u-a562f4fd">
         <button type="button" class="btn b-light" data-act="verify" id="vbtn"
           >Verify the whole ledger</button
         >
         <span
-          class="ins"
+          class="ins u-d67de6c9"
           id="vstatus"
           aria-live="polite"
-          style="font-size:15px;color:var(--nmuted)">{entryCount} entries ready.</span
+         >{entryCount} entries ready.</span
         >
       </div>
-      <div class="chain" aria-hidden="true" style="margin-top:28px" id="vchain"></div>
+      <div class="chain u-583f758b" aria-hidden="true" id="vchain"></div>
       <div id="vresult"></div>
     </div>
 
-    <section class="grid12" style="margin-top:80px">
+    <section class="grid12 u-a7fabf36">
       <div class="span5">
         <h2 class="h3">Prefer your own terminal?</h2>
-        <p style="margin:10px 0 0;color:var(--ink2)">
+        <p class="u-a828a272">
           The command line verifier shares no code with the program that writes the ledger.
           That is the point: two independent programs agreeing is evidence. One agreeing with
           itself is not.
         </p>
       </div>
-      <div class="span7 paper" style="padding:22px 24px">
-        <div class="row" style="justify-content:space-between">
+      <div class="span7 paper u-10c6e7bb">
+        <div class="row u-a562f4fd">
           <span class="lbl">From a clone of the repository</span>
           <button type="button" class="btn b-line small" data-act="copycli">Copy</button>
         </div>
         <pre
-          class="mono"
-          style="margin:12px 0 0;font-size:13px;line-height:1.8;white-space:pre-wrap;word-break:break-all"
+          class="mono u-9906a5fb"
+         
           ><code id="cli">{cliShort}</code></pre
         >
       </div>
@@ -84,6 +84,7 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
       PINNED_PUBKEY,
       ed25519Available,
     } from '../lib/verify';
+    import { clearHTML, setHTML } from '../lib/trusted-html';
 
     const boot = document.getElementById('verify-boot');
     const fullCli = boot?.getAttribute('data-cli') || '';
@@ -96,13 +97,13 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
 
     function buildCells(n: number): void {
       if (!chain) return;
-      chain.innerHTML = '';
+      clearHTML(chain);
       const cols = 16;
       const total = Math.max(cols, Math.ceil(n / cols) * cols);
       for (let i = 0; i < total; i++) {
         const span = document.createElement('span');
         span.dataset.c = String(i);
-        if (i >= n) span.style.visibility = 'hidden';
+        if (i >= n) span.classList.add('vis-hidden');
         chain.appendChild(span);
       }
     }
@@ -143,7 +144,7 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
     btn?.addEventListener('click', async () => {
       if (!status || !btn || !chain || !result) return;
       btn.disabled = true;
-      result.innerHTML = '';
+      clearHTML(result);
       chain.querySelectorAll('span').forEach((c) => {
         c.className = '';
       });
@@ -204,7 +205,14 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
           status.textContent = 'Verification failed. See details below.';
         }
 
-        result.innerHTML = `<div class="rise mono" style="margin-top:26px;padding:20px 22px;border-radius:14px;background:var(--night2);font-size:14.5px;line-height:1.9">${verifyResult.lines.map((l) => l.replace(/</g, '&lt;')).join('<br>')}</div>`;
+        const esc = (s: string) =>
+          String(s).replace(/[&<>"']/g, (c) =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+          );
+        setHTML(
+          result,
+          `<div class="rise mono u-082b7a2b">${verifyResult.lines.map((l) => esc(l)).join('<br>')}</div>`,
+        );
       } catch (err) {
         status.textContent = `Could not complete verification: ${(err as Error).message}`;
       } finally {

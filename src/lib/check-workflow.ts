@@ -1,7 +1,22 @@
 /**
  * Check-a-repo island: parse uses: lines, assess status, resolve SHAs via
  * GitHub Contents API + application/vnd.github.sha. Browser-safe.
+ *
+ * Every byte from GitHub is treated as hostile. Parsing is line-oriented with
+ * a linear-time regex, hard size limits, and AbortController timeouts.
  */
+
+import {
+  FETCH_TIMEOUT_MS,
+  LIMIT_MESSAGES,
+  LimitError,
+  MAX_UNIQUE_REFS,
+  MAX_WORKFLOW_FILE_BYTES,
+  MAX_WORKFLOW_FILES,
+  MAX_WORKFLOW_LINES,
+  PARSE_TIME_BUDGET_MS,
+} from './limits';
+import { actionHistoryHref } from './safe-link';
 
 export type WorkflowFile = { name: string; text: string };
 
@@ -49,8 +64,12 @@ export type LedgerLookup = {
   nowMs: number;
 };
 
+/**
+ * Linear-time uses: matcher. No nested quantifiers that can explode.
+ * Indent, optional quotes, owner/repo/path@ref, optional # comment to EOL.
+ */
 const USES =
-  /^(\s*-?\s*)uses:\s*(['"]?)([^'"\s#]+)\2\s*(?:#\s*(.*?))?\s*$/;
+  /^([ \t]*-?[ \t]*)uses:[ \t]*(['"]?)([^'"#\s]+)\2[ \t]*(?:#[ \t]*(.*))?$/;
 
 const BRANCHES = new Set([
   'main',
@@ -67,13 +86,48 @@ const BRANCHES = new Set([
 
 export { USES, BRANCHES };
 
+function enforceFileLimits(files: WorkflowFile[]): void {
+  if (files.length > MAX_WORKFLOW_FILES) {
+    throw new LimitError('too_many_files', LIMIT_MESSAGES.too_many_files);
+  }
+  for (const f of files) {
+    if (f.text.length > MAX_WORKFLOW_FILE_BYTES) {
+      throw new LimitError('file_too_large', LIMIT_MESSAGES.file_too_large);
+    }
+    // Cheap line count without allocating a huge array for pathological input.
+    let lines = 1;
+    for (let i = 0; i < f.text.length; i++) {
+      if (f.text.charCodeAt(i) === 10) {
+        lines++;
+        if (lines > MAX_WORKFLOW_LINES) {
+          throw new LimitError('too_many_lines', LIMIT_MESSAGES.too_many_lines);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Parse uses: lines. Aborts with a LimitError if matching a single file
+ * exceeds PARSE_TIME_BUDGET_MS (guards against future regex regressions).
+ */
 export function parseFiles(files: WorkflowFile[]): ParsedUses[] {
+  enforceFileLimits(files);
   const out: ParsedUses[] = [];
   for (const f of files) {
+    const started = performance.now();
     const lines = f.text.split('\n');
     for (let i = 0; i < lines.length; i++) {
+      if ((i & 0x3ff) === 0 && performance.now() - started > PARSE_TIME_BUDGET_MS) {
+        throw new LimitError(
+          'too_many_lines',
+          'Parsing this workflow took too long. Paste a shorter excerpt.',
+        );
+      }
       const line = lines[i];
-      const m = line.match(USES);
+      // Cap per-line work: ignore absurdly long lines without matching.
+      if (line.length > 4096) continue;
+      const m = USES.exec(line);
       if (!m) continue;
       const spec = m[3];
       if (spec.startsWith('./') || spec.startsWith('docker://')) {
@@ -89,8 +143,11 @@ export function parseFiles(files: WorkflowFile[]): ParsedUses[] {
       if (at < 1) continue;
       const target = spec.slice(0, at);
       const ref = spec.slice(at + 1);
+      if (!ref || ref.length > 256) continue;
       const parts = target.split('/');
-      const key = parts.slice(0, 2).join('/');
+      if (parts.length < 2) continue;
+      const key = `${parts[0]}/${parts[1]}`;
+      if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(key)) continue;
       let kind: UsesKind;
       if (/^[0-9a-f]{40}$/.test(ref)) kind = 'sha';
       else if (/^[0-9a-f]{7,39}$/.test(ref)) kind = 'short';
@@ -172,7 +229,10 @@ export function assess(
       r.status = 'Pinned to a commit. Nothing to do.';
       r.detail = 'This line always runs the same code.';
     }
-    if (w && item.key) r.link = { href: `/a/${item.key}`, text: 'See its history' };
+    if (w && item.key) {
+      const href = actionHistoryHref(item.key);
+      if (href) r.link = { href, text: 'See its history' };
+    }
     return r;
   }
 
@@ -203,16 +263,13 @@ export function assess(
   if (w && mv) {
     r.status = `Uses a tag that moved ${ago(mv.at, ledger.nowMs)} ago`;
     r.detail = `${mv.what}. Pin to the new commit, or keep the old one until you have reviewed it.`;
-    r.link = {
-      href: `/a/${item.key}/${item.ref}`,
-      text: 'See exactly what changed',
-    };
+    const href = item.key && item.ref ? actionHistoryHref(item.key, item.ref) : null;
+    if (href) r.link = { href, text: 'See exactly what changed' };
   } else if (w) {
     r.status = 'Uses a tag that can be moved';
     r.detail = `It has not moved since we started watching on ${formatWatchStart(ledger.watchedSinceMs)}. Pinning locks in the code it runs today.`;
-    r.link = item.key
-      ? { href: `/a/${item.key}`, text: 'See its history' }
-      : null;
+    const href = item.key ? actionHistoryHref(item.key) : null;
+    r.link = href ? { href, text: 'See its history' } : null;
   } else {
     r.status = "Uses a tag we don't watch yet";
     r.detail =
@@ -231,13 +288,52 @@ export class GithubApiError extends Error {
   }
 }
 
+function withTimeout(
+  fetchImpl: typeof fetch,
+  timeoutMs: number = FETCH_TIMEOUT_MS,
+): typeof fetch {
+  return (input: RequestInfo | URL, init?: RequestInit) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const parent = init?.signal;
+    if (parent) {
+      if (parent.aborted) ctrl.abort();
+      else parent.addEventListener('abort', () => ctrl.abort(), { once: true });
+    }
+    return fetchImpl(input, { ...init, signal: ctrl.signal }).finally(() =>
+      clearTimeout(timer),
+    );
+  };
+}
+
+async function timedFetch(
+  fetchImpl: typeof fetch,
+  input: string,
+  init?: RequestInit,
+): Promise<Response> {
+  try {
+    return await withTimeout(fetchImpl)(input, init);
+  } catch (err) {
+    const name = err && typeof err === 'object' && 'name' in err ? String((err as { name: string }).name) : '';
+    const msg = err instanceof Error ? err.message : String(err);
+    if (name === 'AbortError' || /abort/i.test(msg)) {
+      throw new LimitError('fetch_timeout', LIMIT_MESSAGES.fetch_timeout);
+    }
+    throw err;
+  }
+}
+
 export async function resolveSha(
   item: Pick<ParsedUses, 'key' | 'ref'>,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
   if (!item.key || !item.ref) throw new Error('missing key/ref');
-  const url = `https://api.github.com/repos/${item.key}/commits/${encodeURIComponent(item.ref)}`;
-  const res = await fetchImpl(url, {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(item.key)) {
+    throw new Error('bad key');
+  }
+  const [owner, repo] = item.key.split('/');
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(item.ref)}`;
+  const res = await timedFetch(fetchImpl, url, {
     headers: { Accept: 'application/vnd.github.sha' },
   });
   if (!res.ok) throw new Error(`status ${res.status}`);
@@ -250,13 +346,14 @@ export async function loadRepo(
   repo: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<WorkflowFile[]> {
-  const res = await fetchImpl(
-    `https://api.github.com/repos/${repo}/contents/.github/workflows`,
-  );
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) {
+    throw new GithubApiError('notfound', 404);
+  }
+  const [owner, name] = repo.split('/');
+  const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const res = await timedFetch(fetchImpl, `${base}/contents/.github/workflows`);
   if (res.status === 404) {
-    // Contents 404 means either the repo is missing, or it exists with no
-    // .github/workflows tree. Distinguish with a cheap repo metadata GET.
-    const meta = await fetchImpl(`https://api.github.com/repos/${repo}`);
+    const meta = await timedFetch(fetchImpl, base);
     if (meta.status === 404) throw new GithubApiError('notfound', 404);
     if (meta.status === 403 || meta.status === 429)
       throw new GithubApiError('ratelimit', 403);
@@ -269,17 +366,60 @@ export async function loadRepo(
   const list = (await res.json()) as {
     name: string;
     download_url?: string;
+    size?: number;
   }[];
   const ymls = (Array.isArray(list) ? list : []).filter(
     (f) => /\.ya?ml$/.test(f.name) && f.download_url,
   );
-  return Promise.all(
+  if (ymls.length > MAX_WORKFLOW_FILES) {
+    throw new LimitError('too_many_files', LIMIT_MESSAGES.too_many_files);
+  }
+  for (const f of ymls) {
+    if (typeof f.size === 'number' && f.size > MAX_WORKFLOW_FILE_BYTES) {
+      throw new LimitError('file_too_large', LIMIT_MESSAGES.file_too_large);
+    }
+  }
+  const files = await Promise.all(
     ymls.map(async (f) => {
-      const r = await fetchImpl(f.download_url!);
+      const url = f.download_url!;
+      // Only allow raw.githubusercontent.com (and rare githubusercontent hosts).
+      let host: string;
+      try {
+        host = new URL(url).hostname;
+      } catch {
+        throw new Error('bad download url');
+      }
+      if (
+        host !== 'raw.githubusercontent.com' &&
+        !host.endsWith('.githubusercontent.com')
+      ) {
+        throw new Error('unexpected download host');
+      }
+      const r = await timedFetch(fetchImpl, url);
+      if (!r.ok) throw new Error(`status ${r.status}`);
       const text = await r.text();
+      if (text.length > MAX_WORKFLOW_FILE_BYTES) {
+        throw new LimitError('file_too_large', LIMIT_MESSAGES.file_too_large);
+      }
       return { name: f.name, text };
     }),
   );
+  enforceFileLimits(files);
+  return files;
+}
+
+/** Count unique refs that need SHA resolution; throw if over the cap. */
+export function assertUniqueRefBudget(items: ParsedUses[]): number {
+  const uniq = new Set<string>();
+  for (const it of items) {
+    if (['tag', 'branch', 'short'].includes(it.kind) && it.key && it.ref) {
+      uniq.add(`${it.key}@${it.ref}`);
+    }
+  }
+  if (uniq.size > MAX_UNIQUE_REFS) {
+    throw new LimitError('too_many_refs', LIMIT_MESSAGES.too_many_refs);
+  }
+  return uniq.size;
 }
 
 export function fixedFiles(
@@ -302,10 +442,11 @@ export function fixedFiles(
 export function normalizeRepo(input: string): string | null {
   const repo = input
     .trim()
-    .replace(/^https?:\/\/github\.com\//, '')
+    .replace(/^https?:\/\/github\.com\//i, '')
     .replace(/\/$/, '')
-    .replace(/\.git$/, '');
+    .replace(/\.git$/i, '');
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return null;
+  if (repo.includes('..')) return null;
   return repo;
 }
 

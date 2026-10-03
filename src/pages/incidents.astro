@@ -93,37 +93,37 @@ for (const n of digestNotes) {
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap" style="padding-top:72px">
+  <div class="wrap u-e47c4d83">
     <h1 class="h1" tabindex="-1">
       What went wrong,<br />on the record.
     </h1>
-    <p class="lede" style="margin-top:22px;max-width:660px">
+    <p class="lede u-f50a0c66">
       Every mistake we have made, how we found it, and where we disclosed it. We
       add to this list. We never remove from it. Most were caught by our own
       canary.
     </p>
-    <ol
-      style="margin:52px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px"
+    <ol class="u-73604b97"
+     
     >
       {
         incidents.map((x) => (
           <li
-            class="paper grid12"
-            style="gap:18px;padding:22px 24px;align-items:start"
+            class="paper grid12 u-2b690e9e"
+           
           >
             <span
-              class="ins"
-              style="grid-column:span 2;font-size:14px;color:var(--ink2)"
+              class="ins u-2e30b426"
+             
             >
               {x.when || 'Noted'}
             </span>
-            <span style="grid-column:span 3;font-weight:800;line-height:1.35">
+            <span class="u-80777b60">
               {x.title}
             </span>
-            <span style="grid-column:span 4;color:var(--ink2)">{x.what}</span>
+            <span class="u-f6a36cf6">{x.what}</span>
             <span
-              class="ins"
-              style="grid-column:span 3;font-size:13.5px;color:var(--ink3)"
+              class="ins u-9aaf6fc7"
+             
             >
               {x.response}
             </span>

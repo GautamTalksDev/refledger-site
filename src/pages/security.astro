@@ -14,41 +14,41 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap narrow" style="padding-top:72px;padding-bottom:96px">
+  <div class="wrap narrow u-882997a9">
     <h1 class="h1" tabindex="-1">Security</h1>
-    <p class="lede" style="margin-top:22px;max-width:640px">
+    <p class="lede u-aa1a1fba">
       Two different concerns: vulnerabilities in Refledger itself, and what we
       do when the ledger records a live attack on someone else's action.
     </p>
 
-    <section style="margin-top:56px">
+    <section class="u-137cee62">
       <h2 class="h3">Report a vulnerability in Refledger</h2>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         If you find a security issue in the crawler, the log, the verifier, this
         site, or related infrastructure, report it privately. Preferred:
         <a
           href="https://github.com/GautamTalksDev/refledger/security/advisories/new"
-          >GitHub private vulnerability reporting</a
+           rel="noopener noreferrer">GitHub private vulnerability reporting</a
         >. We aim to acknowledge receipt within 72 hours.
       </p>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         Out of scope: third-party repositories we observe, GitHub itself, and
         public tag movement we did not cause. Good-faith researchers who follow
         this process and give us a reasonable chance to respond before public
         disclosure are covered by our safe harbour statement in
         <a href="https://github.com/GautamTalksDev/refledger/blob/main/SECURITY.md"
-          >SECURITY.md</a
+           rel="noopener noreferrer">SECURITY.md</a
         >.
       </p>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         Researchers can also find contact details in
         <a href="/.well-known/security.txt"><code class="mono">/.well-known/security.txt</code></a>.
       </p>
     </section>
 
-    <section style="margin-top:48px">
+    <section class="u-e2147305">
       <h2 class="h3">When we detect a live attack</h2>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         When the ledger records a high-severity or otherwise notable tag
         movement that may indicate compromise, we contact the repository
         maintainer via their published security contact, contact GitHub
@@ -58,19 +58,19 @@ const tipSeq = Math.max(0, data.chainLength - 1);
         tag now points at a different public commit) is already visible on
         GitHub.
       </p>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         We never name a suspected attacker, never assert that a repository is
         compromised, and never grade an action. We state what moved, when we
         observed it, and what the content difference was. Full policy:
         <a href="https://github.com/GautamTalksDev/refledger/blob/main/SECURITY.md"
-          >SECURITY.md</a
+           rel="noopener noreferrer">SECURITY.md</a
         >.
       </p>
     </section>
 
-    <section style="margin-top:48px">
+    <section class="u-e2147305">
       <h2 class="h3">How the signing key is protected</h2>
-      <p style="margin:12px 0 0;color:var(--ink2)">
+      <p class="u-9f210c88">
         Daily heads are signed with Ed25519. The private seed lives only as the
         GitHub Environment secret <code class="mono">REFLEDGER_SIGNING_KEY</code> on
         the <code class="mono">ledger</code> environment (main branch only), never as a
@@ -79,14 +79,14 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </p>
     </section>
 
-    <section style="margin-top:48px">
+    <section class="u-e2147305">
       <h2 class="h3">Check our work</h2>
-      <ul style="margin:12px 0 0;padding-left:1.2em;color:var(--ink2)">
-        <li style="margin-top:8px">
+      <ul class="u-f38c2dad">
+        <li class="u-8a77e5a3">
           <a href="/verify">Verify</a> the published ledger in your browser or
           with the CLI.
         </li>
-        <li style="margin-top:8px">
+        <li class="u-8a77e5a3">
           Read every disclosed mistake on <a href="/incidents">Incidents</a>.
         </li>
       </ul>

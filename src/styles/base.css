@@ -161,11 +161,14 @@ svg {
   transform: translateY(1px) scale(0.985);
 }
 .b-blue {
-  background: var(--blue);
+  /* Filled buttons keep a deep blue in both themes so white label text
+     meets WCAG AA. Text accents still use var(--blue). */
+  background: #2347c8;
   color: #fff;
 }
 .b-blue:hover {
   color: #fff;
+  background: #1c3aa8;
 }
 .b-ink {
   background: var(--ink);
@@ -361,6 +364,36 @@ textarea.yaml {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.01em;
+}
+.status-line.attn {
+  color: var(--blue);
+}
+.fact-dd {
+  margin: 4px 0 0;
+}
+.fact-dd.to {
+  color: var(--blue);
+}
+.vis-hidden {
+  visibility: hidden;
+}
+.toy-sha {
+  color: inherit;
+}
+.toy-sha.on {
+  color: #8ea4ff;
+}
+.toy-run-note {
+  color: var(--nmuted);
+}
+.toy-run-note.on {
+  color: #8ea4ff;
+}
+.verdict-ok {
+  color: var(--blue);
+}
+.verdict-bad {
+  color: var(--rust);
 }
 .scan {
   margin: 34px 0 0;

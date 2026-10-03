@@ -16,6 +16,7 @@
     "check:copy": "node scripts/check-copy-rules.mjs",
     "check:size": "node scripts/check-js-size.mjs",
     "check:pins": "node scripts/check-action-pins.mjs",
+    "check:audit": "node scripts/check-audit.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {

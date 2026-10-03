@@ -166,7 +166,7 @@ export function renderWallSvg(model: WallModel): string {
 
   const parts: string[] = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" style="display:block;width:100%;min-width:860px;height:auto" role="group" aria-label="${esc(wallAriaLabel(model))}">`,
+    `<svg class="u-b694be74" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="group" aria-label="${esc(wallAriaLabel(model))}">`,
   );
   parts.push(`<defs>
     <pattern id="gapHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -335,7 +335,7 @@ export function renderWallSvg(model: WallModel): string {
 
   if (model.hiddenUnchanged > 0) {
     parts.push(
-      `<a href="/moved" class="wlab wlab-muted" style="font-style:italic">
+      `<a href="/moved" class="wlab wlab-muted u-e698a016">
         <text x="${padL}" y="${(ecoBottom + 18).toFixed(1)}">${model.hiddenUnchanged} more repositories, every one unchanged since genesis</text>
       </a>`,
     );

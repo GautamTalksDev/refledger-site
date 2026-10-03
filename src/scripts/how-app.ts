@@ -1,6 +1,7 @@
 /**
  * How-it-works interactive: toy, time wall, live SHA-256 margin.
  */
+import { setHTML } from '../lib/trusted-html';
 
 export type HowPagePayload = {
   genesisMs: number;
@@ -61,15 +62,18 @@ export function bootHowPage(payload: HowPagePayload) {
   const {
     genesisMs,
     nowMs,
-    wallRows,
-    events,
+    wallRows: wallRowsIn,
+    events: eventsIn,
     gapStartH,
     gapEndH,
     firstRowMoveH,
-    canaryDotHs,
+    canaryDotHs: canaryIn,
     actionCount,
     repositoryCount,
   } = payload;
+  const wallRows = Array.isArray(wallRowsIn) ? wallRowsIn : [];
+  const events = Array.isArray(eventsIn) ? eventsIn : [];
+  const canaryDotHs = Array.isArray(canaryIn) ? canaryIn : [];
   const totalHours = Math.max((nowMs - genesisMs) / 3_600_000, 1);
 
   const pop = document.getElementById('how-population');
@@ -96,38 +100,42 @@ export function bootHowPage(payload: HowPagePayload) {
         ? 'The tag v1.0.0 now points at code nobody reviewed.'
         : 'The tag v1.0.0 points at the code you reviewed.',
     );
-    svg.innerHTML =
+    setHTML(
+      svg,
       '<g font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity=".65"><text x="0" y="16">Your workflow</text><text x="360" y="16">The action\'s repository</text></g>' +
-      '<rect x="0" y="36" width="180" height="50" rx="25" fill="var(--ink)"></rect><text x="90" y="67" text-anchor="middle" font-family="B612 Mono, monospace" font-size="15" fill="var(--paper)">@v1.0.0</text>' +
-      '<rect x="360" y="36" width="280" height="50" rx="13" fill="var(--card)" stroke="' +
-      (m ? 'var(--rule)' : 'var(--ink)') +
-      '" stroke-width="1.5"></rect><text x="378" y="59" font-family="B612 Mono, monospace" font-size="14" fill="currentColor" opacity="' +
-      (m ? 0.45 : 1) +
-      '">a1b2c3d</text><text x="378" y="76" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Reviewed by you on Monday</text>' +
-      '<rect x="360" y="136" width="280" height="50" rx="13" fill="var(--card)" stroke="' +
-      (m ? 'var(--blue)' : 'var(--rule)') +
-      '" stroke-width="1.5" stroke-dasharray="' +
-      (m ? '0' : '5 5') +
-      '"></rect><text x="378" y="159" font-family="B612 Mono, monospace" font-size="14" fill="' +
-      (m ? 'var(--blue)' : 'currentColor') +
-      '" opacity="' +
-      (m ? 1 : 0.45) +
-      '">0e58ed8</text><text x="378" y="176" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Pushed tonight. Reviewed by nobody.</text>' +
-      (m
-        ? '<path d="M180 61 H270" stroke="currentColor" stroke-width="2.4" fill="none"></path><path class="draw" d="M270 61 V161 H360" stroke="var(--blue)" stroke-width="2.6" fill="none"></path><circle cx="270" cy="111" r="5.5" fill="var(--blue)"></circle>'
-        : '<path class="draw" d="M180 61 H360" stroke="currentColor" stroke-width="2.4" fill="none"></path>');
+        '<rect x="0" y="36" width="180" height="50" rx="25" fill="var(--ink)"></rect><text x="90" y="67" text-anchor="middle" font-family="B612 Mono, monospace" font-size="15" fill="var(--paper)">@v1.0.0</text>' +
+        '<rect x="360" y="36" width="280" height="50" rx="13" fill="var(--card)" stroke="' +
+        (m ? 'var(--rule)' : 'var(--ink)') +
+        '" stroke-width="1.5"></rect><text x="378" y="59" font-family="B612 Mono, monospace" font-size="14" fill="currentColor" opacity="' +
+        (m ? 0.45 : 1) +
+        '">a1b2c3d</text><text x="378" y="76" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Reviewed by you on Monday</text>' +
+        '<rect x="360" y="136" width="280" height="50" rx="13" fill="var(--card)" stroke="' +
+        (m ? 'var(--blue)' : 'var(--rule)') +
+        '" stroke-width="1.5" stroke-dasharray="' +
+        (m ? '0' : '5 5') +
+        '"></rect><text x="378" y="159" font-family="B612 Mono, monospace" font-size="14" fill="' +
+        (m ? 'var(--blue)' : 'currentColor') +
+        '" opacity="' +
+        (m ? 1 : 0.45) +
+        '">0e58ed8</text><text x="378" y="176" font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6">Pushed tonight. Reviewed by nobody.</text>' +
+        (m
+          ? '<path d="M180 61 H270" stroke="currentColor" stroke-width="2.4" fill="none"></path><path class="draw" d="M270 61 V161 H360" stroke="var(--blue)" stroke-width="2.6" fill="none"></path><circle cx="270" cy="111" r="5.5" fill="var(--blue)"></circle>'
+          : '<path class="draw" d="M180 61 H360" stroke="currentColor" stroke-width="2.4" fill="none"></path>'),
+    );
     const run = document.getElementById('toy-run');
     if (run)
-      run.innerHTML =
-        'Run some-org/action@v1.0.0<br>Resolving tag v1.0.0<br>Resolved to <b style="color:' +
-        (m ? '#8EA4FF' : 'inherit') +
-        '">' +
-        (m ? '0e58ed8' : 'a1b2c3d') +
-        '</b><br><span style="color:' +
-        (m ? '#8EA4FF' : 'var(--nmuted)') +
-        '">' +
-        (m ? 'Running code nobody reviewed.' : 'Running the code you reviewed.') +
-        '</span>';
+      setHTML(
+        run,
+        'Run some-org/action@v1.0.0<br>Resolving tag v1.0.0<br>Resolved to <b class="toy-sha' +
+          (m ? ' on' : '') +
+          '">' +
+          (m ? '0e58ed8' : 'a1b2c3d') +
+          '</b><br><span class="toy-run-note' +
+          (m ? ' on' : '') +
+          '">' +
+          (m ? 'Running code nobody reviewed.' : 'Running the code you reviewed.') +
+          '</span>',
+      );
     const msg = document.getElementById('toy-msg');
     if (msg)
       msg.textContent = !m
@@ -137,19 +145,25 @@ export function bootHowPage(payload: HowPagePayload) {
           : 'Same label. Different code. Your next run executes it, and now there is a signed record of when it changed.';
     const btns = document.getElementById('toy-btns');
     if (btns)
-      btns.innerHTML = !m
-        ? '<button type="button" class="btn b-blue" data-act="toymove">Move the tag</button>'
-        : (toy.erased
-            ? ''
-            : '<button type="button" class="btn b-ink" data-act="toyerase">Now try to erase the record</button>') +
-          '<button type="button" class="btn b-line" data-act="toyreset">Play again</button>';
+      setHTML(
+        btns,
+        !m
+          ? '<button type="button" class="btn b-blue" data-act="toymove">Move the tag</button>'
+          : (toy.erased
+              ? ''
+              : '<button type="button" class="btn b-ink" data-act="toyerase">Now try to erase the record</button>') +
+            '<button type="button" class="btn b-line" data-act="toyreset">Play again</button>',
+      );
     const led = document.getElementById('toy-ledger');
     if (led)
-      led.innerHTML = !m
-        ? '<span class="ins muted" style="font-size:14px">Nothing has moved. Nothing to write down.</span>'
-        : '<div class="' +
-          (toy.erased ? 'shake' : 'rise') +
-          '" style="display:grid;grid-template-columns:60px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 16px;border:1px solid var(--blue-line);border-radius:12px;background:var(--blue-soft);font-size:15px"><span class="mono" style="font-size:13px;color:var(--blue)">seq 1</span><span><b>v1.0.0</b> moved from <span class="mono" style="font-size:13px">a1b2c3d</span> to <span class="mono" style="font-size:13px">0e58ed8</span></span><span class="ins" style="font-size:13px;font-weight:700;color:var(--blue)">Signed</span></div>';
+      setHTML(
+        led,
+        !m
+          ? '<span class="ins muted u-433de30b">Nothing has moved. Nothing to write down.</span>'
+          : '<div class="' +
+            (toy.erased ? 'shake' : 'rise') +
+            ' u-3ae056cd"><span class="mono u-8afd7da5">seq 1</span><span><b>v1.0.0</b> moved from <span class="mono u-5e0faad2">a1b2c3d</span> to <span class="mono u-5e0faad2">0e58ed8</span></span><span class="ins u-247ff370">Signed</span></div>',
+      );
   }
 
   function wallSVG(t: number, rowsList: string[], w: number, h: number) {
@@ -170,7 +184,7 @@ export function bootHowPage(payload: HowPagePayload) {
       return `M${X0} ${y} H${gs} M${ge} ${y} H${end}`;
     };
 
-    let s = `<svg viewBox="0 0 ${w} ${h}" style="display:block;width:100%;min-width:720px;height:auto" role="img" aria-label="Watched actions drawn as lines through time, up to ${fmt(genesisMs + hours * 3600000)} UTC">`;
+    let s = `<svg class="u-9732559f" viewBox="0 0 ${w} ${h}" role="img" aria-label="Watched actions drawn as lines through time, up to ${fmt(genesisMs + hours * 3600000)} UTC">`;
     s += `<g font-family="B612, sans-serif" font-size="11" fill="currentColor" opacity=".6"><text x="${X0}" y="16">${fmt(genesisMs).split(',')[0]}</text><text x="${hx(totalHours)}" y="16" text-anchor="end">now</text></g>`;
     s += `<line x1="${X0}" y1="26" x2="${X1}" y2="26" stroke="currentColor" stroke-opacity=".25"></line>`;
     if (gs != null && ge != null && cx > gs) {
@@ -180,7 +194,8 @@ export function bootHowPage(payload: HowPagePayload) {
       const y = 52 + i * 30;
       const end =
         i === 0 && rj != null ? Math.min(cx, rj) : cx;
-      s += `<text x="${X0 - 14}" y="${y + 4}" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity="${i === 0 ? 1 : 0.75}">${name}</text>`;
+      const safeName = String(name).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]!));
+      s += `<text x="${X0 - 14}" y="${y + 4}" text-anchor="end" font-family="B612, sans-serif" font-size="11.5" fill="currentColor" opacity="${i === 0 ? 1 : 0.75}">${safeName}</text>`;
       s += `<path d="${seg(y, end)}" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"></path>`;
       if (i === 0 && rj != null && cx > rj) {
         s += `<path d="M${rj} ${y} V${y + 8} H${cx}" stroke="var(--blue)" stroke-width="2.6" fill="none" stroke-linecap="round"></path><circle cx="${rj}" cy="${y + 4}" r="4.5" fill="var(--blue)"></circle>`;
@@ -205,11 +220,9 @@ export function bootHowPage(payload: HowPagePayload) {
   function drawWall() {
     const el = document.getElementById('wall');
     if (!el) return;
-    el.innerHTML = wallSVG(
-      scrub.t,
-      wallRows,
-      1000,
-      52 + wallRows.length * 30 + 24,
+    setHTML(
+      el,
+      wallSVG(scrub.t, wallRows, 1000, 52 + wallRows.length * 30 + 24),
     );
     const hours = (scrub.t / 100) * totalHours;
     const clock = document.getElementById('clock');
@@ -282,7 +295,8 @@ export function bootHowPage(payload: HowPagePayload) {
       });
       const v = document.getElementById('verdict');
       if (v) {
-        v.style.color = firstBad === -1 ? 'var(--blue)' : 'var(--rust)';
+        v.classList.toggle('verdict-ok', firstBad === -1);
+        v.classList.toggle('verdict-bad', firstBad !== -1);
         v.textContent =
           firstBad === -1
             ? `Page integrity verified. ${c.length} of ${c.length} sections chained, hashed live in your browser.`

@@ -11,8 +11,9 @@ import { execFileSync } from 'node:child_process';
 const root = new URL('..', import.meta.url).pathname;
 const workflowsDir = join(root, '.github', 'workflows');
 
+// Any org/action or org/action/path pinned to a 40-char SHA with a version comment.
 const PIN_RE =
-  /uses:\s*(actions\/[\w-]+)@([0-9a-f]{40})\s*#\s*(v[\w.-]+)/gi;
+  /uses:\s*((?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+)@([0-9a-f]{40})\s*#\s*(v[\w.-]+)/gi;
 
 function listWorkflowFiles(dir) {
   const out = [];
@@ -23,7 +24,15 @@ function listWorkflowFiles(dir) {
   return out;
 }
 
-function resolveTagSha(repo, tag) {
+/** Map uses: path (org/repo or org/repo/subdir) to the git repository. */
+function repoOfAction(action) {
+  const parts = action.split('/');
+  if (parts.length < 2) throw new Error(`bad action ${action}`);
+  return `${parts[0]}/${parts[1]}`;
+}
+
+function resolveTagSha(action, tag) {
+  const repo = repoOfAction(action);
   // Prefer git ls-remote (no auth). Fall back to gh api.
   try {
     const out = execFileSync(
@@ -80,7 +89,7 @@ for (const file of listWorkflowFiles(workflowsDir)) {
 }
 
 if (pins.length === 0) {
-  console.error('No pinned actions/* SHAs with version comments found.');
+  console.error('No pinned action SHAs with version comments found.');
   process.exit(1);
 }
 

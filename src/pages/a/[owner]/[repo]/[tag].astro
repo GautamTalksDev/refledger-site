@@ -74,44 +74,44 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   ledgerAsOf={fmtUtc(data.buildTime) + ' UTC'}
   latestSeq={tipSeq}
 >
-  <div class="wrap" style="padding-top:56px">
+  <div class="wrap u-ed929bb2">
     <nav aria-label="Breadcrumb" class="lbl">
-      <a href="/moved" style="color:inherit">Watched actions</a> /
-      <a href={`/a/${repoKey}`} style="color:inherit">{repoKey}</a> / {tag}
-      {repo.canary && <span class="pill" style="margin-left:8px">Canary</span>}
+      <a class="u-1c9c449e" href="/moved">Watched actions</a> /
+      <a class="u-1c9c449e" href={`/a/${repoKey}`}>{repoKey}</a> / {tag}
+      {repo.canary && <span class="pill u-5dd2a678">Canary</span>}
     </nav>
-    <div class="grid12" style="margin-top:18px;align-items:end">
+    <div class="grid12 u-d38012f2">
       <h1
-        class="mono span5"
+        class="mono span5 u-17c1ba1e"
         tabindex="-1"
-        style="margin:0;font-size:clamp(96px,14vw,190px);line-height:.82;font-weight:700;letter-spacing:-.06em"
+       
       >
         {tag}
       </h1>
-      <p class="lede span7" style="margin-bottom:12px">{lede}</p>
+      <p class="lede span7 u-da12f285">{lede}</p>
     </div>
 
-    <h2 class="h3" style="margin-top:72px">Its life, as we recorded it</h2>
-    <ol style="margin:28px 0 0;padding:0;list-style:none">
-      <li
-        style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+    <h2 class="h3 u-fa08ae21">Its life, as we recorded it</h2>
+    <ol class="u-90013037">
+      <li class="u-d47bbbff"
+       
       >
-        <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+        <span class="ins u-13d206cc"
           >{fmtUtc(firstSeen)} UTC</span
         >
-        <span aria-hidden="true" style="position:relative">
-          <span
-            style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+        <span class="u-d461c96d" aria-hidden="true">
+          <span class="u-7092fd0a"
+           
           ></span>
-          <span
-            style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--ink)"
+          <span class="u-f6fb86f6"
+           
           ></span>
         </span>
         <div>
-          <div class="h3" style="font-size:21px">
+          <div class="h3 u-a3ba3b12">
             First seen, pointing at <span class="mono">{firstSha}</span>
           </div>
-          <p style="margin:6px 0 0;color:var(--ink2)">
+          <p class="u-f396cd67">
             Held for {heldBefore}. Unchanged at every check until the next recorded event.
           </p>
         </div>
@@ -126,26 +126,26 @@ const tipSeq = Math.max(0, data.chainLength - 1);
               ? whatChangedFromEntry(entry, correction).phrase
               : 'Tag deleted';
             return (
-              <li
-                style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+              <li class="u-d47bbbff"
+               
               >
-                <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+                <span class="ins u-13d206cc"
                   >{fmtUtc(ev.recorded_at)} UTC</span
                 >
-                <span aria-hidden="true" style="position:relative">
-                  <span
-                    style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+                <span class="u-d461c96d" aria-hidden="true">
+                  <span class="u-7092fd0a"
+                   
                   ></span>
-                  <span
-                    style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--rust)"
+                  <span class="u-a0a0b593"
+                   
                   ></span>
                 </span>
                 <div>
-                  <div class="h3" style="font-size:21px">{what}</div>
-                  <p style="margin:6px 0 0;color:var(--ink2)">
+                  <div class="h3 u-a3ba3b12">{what}</div>
+                  <p class="u-f396cd67">
                     From <span class="mono">{shortSha(ev.from.commit_sha ?? ev.from.target_sha)}</span>.
                   </p>
-                  <a href={`/e/${ev.seq}`} style="margin-top:8px;display:inline-block;font-weight:600"
+                  <a class="u-14fd7769" href={`/e/${ev.seq}`}
                     >Read entry {ev.seq}</a
                   >
                 </div>
@@ -159,26 +159,26 @@ const tipSeq = Math.max(0, data.chainLength - 1);
             : ev.kind;
           const toS = shortSha(ev.to.commit_sha ?? ev.to.target_sha);
           return (
-            <li
-              style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+            <li class="u-d47bbbff"
+             
             >
-              <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px"
+              <span class="ins u-13d206cc"
                 >{fmtUtc(ev.recorded_at)} UTC</span
               >
-              <span aria-hidden="true" style="position:relative">
-                <span
-                  style="position:absolute;left:13px;top:16px;bottom:-40px;width:2px;background:var(--rule)"
+              <span class="u-d461c96d" aria-hidden="true">
+                <span class="u-7092fd0a"
+                 
                 ></span>
-                <span
-                  style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--blue)"
+                <span class="u-ebf22c5d"
+                 
                 ></span>
               </span>
               <div>
-                <div class="h3" style="font-size:21px">
-                  Moved to <span class="mono" style="color:var(--blue)">{toS}</span>
+                <div class="h3 u-a3ba3b12">
+                  Moved to <span class="mono u-285582c7">{toS}</span>
                 </div>
-                <p style="margin:6px 0 0;color:var(--ink2)">{what}.</p>
-                <a href={`/e/${ev.seq}`} style="margin-top:8px;display:inline-block;font-weight:600"
+                <p class="u-f396cd67">{what}.</p>
+                <a class="u-14fd7769" href={`/e/${ev.seq}`}
                   >Read entry {ev.seq}</a
                 >
               </div>
@@ -187,20 +187,20 @@ const tipSeq = Math.max(0, data.chainLength - 1);
         })
       }
 
-      <li
-        style="display:grid;grid-template-columns:170px 28px minmax(0,1fr);gap:0 18px;padding-bottom:40px"
+      <li class="u-d47bbbff"
+       
       >
-        <span class="ins" style="font-size:14px;color:var(--ink2);padding-top:2px">Now</span>
-        <span aria-hidden="true" style="position:relative">
-          <span
-            style="position:absolute;left:7px;top:4px;width:14px;height:14px;border-radius:50%;background:var(--blue)"
+        <span class="ins u-13d206cc">Now</span>
+        <span class="u-d461c96d" aria-hidden="true">
+          <span class="u-ebf22c5d"
+           
           ></span>
         </span>
         <div>
-          <div class="h3" style="font-size:21px">
+          <div class="h3 u-a3ba3b12">
             Still pointing at <span class="mono">{tipSha}</span>
           </div>
-          <p style="margin:6px 0 0;color:var(--ink2)">
+          <p class="u-f396cd67">
             {heldAfter ? `Held for ${heldAfter} so far.` : 'Current tip from the newest observation.'}
           </p>
         </div>

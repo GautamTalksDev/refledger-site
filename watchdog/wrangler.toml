@@ -1,0 +1,10 @@
+# Watchdog for Refledger observatory health.
+# Deploy only from this directory. Never bind routes or custom domains.
+name = "refledger-watchdog"
+main = "src/index.ts"
+compatibility_date = "2026-09-29"
+workers_dev = false
+preview_urls = false
+
+[triggers]
+crons = ["*/15 * * * *"]

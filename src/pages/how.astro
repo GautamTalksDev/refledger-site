@@ -105,14 +105,14 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
   latestSeq={tipSeq}
 >
-  <div class="wrap" style="padding-top:72px">
+  <div class="wrap u-e47c4d83">
     <h1 class="h1" tabindex="-1">How it works.</h1>
-    <p class="lede" style="margin-top:20px;max-width:620px">
+    <p class="lede u-f18c99ec">
       Three things to try. Each one takes ten seconds, and each one is exactly what
       Refledger does.
     </p>
 
-    <div class="ledgerrow" style="margin-top:80px" data-sec="1">
+    <div class="ledgerrow u-a7fabf36" data-sec="1">
       <div class="stamp" data-stamp="1">
         <div class="n">1</div>
         <div class="h" data-prev></div>
@@ -120,45 +120,45 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </div>
       <div>
         <h2 class="h2" data-text>A tag is a pointer. Go on, move it.</h2>
-        <p class="lede" style="margin-top:18px;max-width:600px" data-text>
+        <p class="lede u-72620200" data-text>
           This is the whole attack. It takes one second, and nothing in your repository
           changes.
         </p>
-        <div class="card" style="margin-top:32px;overflow:hidden">
-          <div class="grid12" style="gap:0">
-            <div class="span7" style="padding:28px 28px 8px">
-              <svg
+        <div class="card u-29c5a13b">
+          <div class="grid12 u-45f762a6">
+            <div class="span7 u-7a771566">
+              <svg class="u-485d0844"
                 viewBox="0 0 640 200"
-                style="display:block;width:100%;height:auto"
+               
                 role="img"
                 aria-live="polite"
                 id="toy-svg"></svg>
             </div>
-            <div class="span5 night" style="margin:14px;padding:22px;border-radius:16px">
+            <div class="span5 night u-8bbc7c46">
               <div class="lbl">Your next CI run</div>
-              <div class="mono" id="toy-run" style="margin-top:10px;font-size:13px;line-height:1.9">
+              <div class="mono u-e6d3c8f1" id="toy-run">
               </div>
             </div>
           </div>
           <div
-            class="row"
-            style="justify-content:space-between;padding:16px 28px 24px;border-top:1px solid var(--rule2)"
+            class="row u-a1624566"
+           
           >
-            <p aria-live="polite" id="toy-msg" style="margin:0;max-width:520px;color:var(--ink2)">
+            <p class="u-be3867d7" aria-live="polite" id="toy-msg">
             </p>
             <div class="row" id="toy-btns"></div>
           </div>
-          <div
-            style="border-top:1px solid var(--rule2);background:var(--card);padding:16px 28px 20px"
+          <div class="u-d79f8cb5"
+           
           >
             <div class="lbl">The ledger</div>
-            <div id="toy-ledger" style="margin-top:10px"></div>
+            <div class="u-d2c171b1" id="toy-ledger"></div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="ledgerrow" style="margin-top:140px" data-sec="2">
+    <div class="ledgerrow u-41292ed0" data-sec="2">
       <div class="stamp" data-stamp="2">
         <div class="n">2</div>
         <div class="h" data-prev></div>
@@ -166,55 +166,61 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </div>
       <div>
         <div
-          class="row"
-          style="justify-content:space-between;align-items:flex-end;gap:24px"
+          class="row u-cf7968de"
+         
         >
           <div>
             <h2 class="h2" data-text>We watch for it, every five minutes.</h2>
-            <p class="lede" style="margin-top:18px;max-width:600px" data-text id="how-wall-lede">
+            <p class="lede u-72620200" data-text id="how-wall-lede">
             </p>
           </div>
-          <div style="text-align:right">
+          <div class="u-54c2afb7">
             <div class="lbl">Instrument clock, UTC</div>
             <div
-              class="ins"
+              class="ins u-22f9ccf9"
               id="clock"
               aria-live="polite"
-              style="font-size:40px;font-weight:700;font-variant-numeric:tabular-nums"
+             
             >
             </div>
           </div>
         </div>
-        <div class="card" style="margin-top:28px;padding:22px 22px 16px">
-          <div class="scroll-x" id="wall"></div>
-          <div class="row" style="margin-top:12px">
+        <div class="card u-8b9f3101">
+          <div
+            class="scroll-x"
+            id="wall"
+            tabindex="0"
+            role="region"
+            aria-label="Watched actions over time"
+          ></div>
+          <div class="row u-56f43562">
             <button
               type="button"
-              class="btn b-blue small"
+              class="btn b-blue small u-4e509ff5"
               data-act="play"
               id="playbtn"
-              style="min-width:104px">Play</button
+             >Play</button
             >
             <label for="scrub" class="lbl">Time</label>
-            <input
+            <input class="u-67ae35ac"
               id="scrub"
               type="range"
               min="0"
               max="100"
               step="0.25"
               value="100"
-              style="flex:1 1 280px;width:auto;min-height:40px"
+             
             />
             <span
-              class="ins"
+              class="ins u-fa7ccc17"
               id="latest"
-              style="font-size:13.5px;color:var(--ink2);min-width:260px"></span>
+             ></span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="ledgerrow" style="margin-top:140px" data-sec="3">
+    <div class="ledgerrow u-41292ed0" data-sec="3">
       <div class="stamp" data-stamp="3">
         <div class="n">3</div>
         <div class="h" data-prev></div>
@@ -222,7 +228,7 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </div>
       <div>
         <h2 class="h2" data-text>Every move is signed and chained.</h2>
-        <p class="lede" style="margin-top:18px;max-width:620px" data-text>
+        <p class="lede u-2c601711" data-text>
           Each entry includes the hash of the one before it. Change one byte anywhere,
           and every entry after it stops matching. That is why nobody, including us,
           can quietly rewrite the record.
@@ -230,7 +236,7 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </div>
     </div>
 
-    <div class="ledgerrow" style="margin-top:140px" data-sec="4">
+    <div class="ledgerrow u-41292ed0" data-sec="4">
       <div class="stamp" data-stamp="4">
         <div class="n">4</div>
         <div class="h" data-prev></div>
@@ -238,11 +244,11 @@ const tipSeq = Math.max(0, data.chainLength - 1);
       </div>
       <div>
         <h2 class="h2" data-text>This page works the same way.</h2>
-        <p class="lede" style="margin-top:18px;max-width:620px" data-text>
+        <p class="lede u-2c601711" data-text>
           Look at the margin. Each section above is hashed with SHA-256 in your browser
           and chained to the one before. Edit any word and see where the chain breaks.
         </p>
-        <div class="row" style="margin-top:26px">
+        <div class="row u-24d308c0">
           <button type="button" class="btn b-ink" data-act="tamper" id="tamperbtn"
             >Change one word</button
           >
@@ -255,31 +261,31 @@ const tipSeq = Math.max(0, data.chainLength - 1);
           >
         </div>
         <p
-          class="ins"
+          class="ins u-2451ea3c"
           id="verdict"
           aria-live="polite"
-          style="margin-top:16px;font-size:15px;font-weight:700"></p>
+         ></p>
       </div>
     </div>
 
-    <section style="margin-top:140px" class="grid12">
-      <div class="span7 card" style="padding:28px 30px">
+    <section class="grid12 u-41292ed0">
+      <div class="span7 card u-dbc9589a">
         <h2 class="h3">What we watch, and why</h2>
-        <p style="margin:10px 0 0;color:var(--ink2)" id="how-population"></p>
-        <ul style="margin:14px 0 0;padding-left:20px;color:var(--ink2);line-height:1.8">
+        <p class="u-a828a272" id="how-population"></p>
+        <ul class="u-155ae14e">
           <li>Heavily used official actions from GitHub, AWS, Azure and others.</li>
           <li>Actions involved in real incidents.</li>
           <li>Everything those actions pull in themselves, at every tag.</li>
           <li>One canary of our own, moved on purpose to test the instrument.</li>
         </ul>
       </div>
-      <div class="span5 night" style="padding:28px 30px">
-        <h2 class="h3" style="color:var(--ntext)">Don't trust us. Check us.</h2>
-        <p style="margin:10px 0 0;color:var(--nmuted)">
+      <div class="span5 night u-dbc9589a">
+        <h2 class="h3 u-aa546bcc">Don't trust us. Check us.</h2>
+        <p class="u-5abf8741">
           Replay the whole ledger in your browser, recompute every hash, and check every
           signature.
         </p>
-        <a href="/verify" class="btn b-light" style="margin-top:20px">Verify the ledger</a>
+        <a href="/verify" class="btn b-light u-a26bda7d">Verify the ledger</a>
       </div>
     </section>
   </div>
@@ -287,8 +293,9 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   <template id="how-payload">{JSON.stringify(payload)}</template>
   <script>
     import { bootHowPage } from '../scripts/how-app';
-    const tpl = document.getElementById('how-payload');
-    const payload = JSON.parse(tpl?.textContent || '{}');
+    const tpl = document.getElementById('how-payload') as HTMLTemplateElement | null;
+    // Template children live in .content; template.textContent is empty.
+    const payload = JSON.parse(tpl?.content?.textContent || '{}');
     bootHowPage(payload);
   </script>
 </BaseLayout>

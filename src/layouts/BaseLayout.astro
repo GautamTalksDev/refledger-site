@@ -1,5 +1,6 @@
 ---
 import '../styles/base.css';
+import '../styles/utilities.css';
 
 interface Props {
   title: string;
@@ -127,7 +128,10 @@ const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
               <a href={`/e/${latestSeq}`}>Latest entry</a>
             )
           }
-          <a href="https://github.com/GautamTalksDev/refledger">Source</a>
+          <a
+            href="https://github.com/GautamTalksDev/refledger"
+            rel="noopener noreferrer">Source</a
+          >
         </nav>
       </div>
     </footer>
