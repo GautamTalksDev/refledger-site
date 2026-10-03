@@ -111,6 +111,7 @@ export type SiteData = {
   lastSealedDate: string | null;
   digestGapTotals: { skipped: number; failed: number };
   incidentsMd: string;
+  incidentSummariesMd: string;
   publicKeyMd: string;
   methodMd: string;
   wallDefaultRepos: string[];
@@ -538,6 +539,7 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     lastSealedDate,
     digestGapTotals,
     incidentsMd: raw.incidents_md,
+    incidentSummariesMd: raw.incident_summaries_md,
     publicKeyMd: raw.public_key_md,
     methodMd: raw.method_md,
     wallDefaultRepos,

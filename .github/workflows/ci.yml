@@ -49,6 +49,9 @@ jobs:
       - name: Copy rules
         run: npm run check:copy
 
+      - name: Words glued to links
+        run: node scripts/check-glued-links.mjs
+
       - name: Action pin SHAs match version comments
         run: npm run check:pins
 
@@ -72,18 +75,20 @@ jobs:
             if curl -fsS http://127.0.0.1:4321/ >/dev/null; then break; fi
             sleep 1
           done
-          npx --yes lighthouse@12.8.2 http://127.0.0.1:4321/ \
-            --chrome-flags="--headless --no-sandbox" \
-            --only-categories=performance,accessibility,best-practices,seo \
-            --quiet \
-            --output=json \
-            --output-path=./lh-home.json
-          node -e "
-            const r=require('./lh-home.json');
-            const cats=r.categories;
-            const scores=Object.fromEntries(Object.entries(cats).map(([k,v])=>[k, Math.round(v.score*100)]));
-            console.log('Lighthouse', scores);
-            const bad=Object.entries(scores).filter(([,s])=>s<95);
-            if (bad.length) { console.error('Below 95:', bad); process.exit(1); }
-          "
+          for url in "/" "/check?example=1" "/e/1" "/incidents" "/verify"; do
+            name=$(echo "$url" | tr '/?' '__')
+            npx --yes lighthouse@12.8.2 "http://127.0.0.1:4321${url}" \
+              --chrome-flags="--headless --no-sandbox" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --quiet \
+              --output=json \
+              --output-path="./lh${name}.json"
+            node -e "
+              const r=require('./lh${name}.json');
+              const scores=Object.fromEntries(Object.entries(r.categories).map(([k,v])=>[k, Math.round(v.score*100)]));
+              console.log('Lighthouse ${url}', scores);
+              const bad=Object.entries(scores).filter(([,s])=>s<98);
+              if (bad.length) { console.error('Below 98:', bad); process.exit(1); }
+            "
+          done
           kill $PREVIEW_PID || true

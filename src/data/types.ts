@@ -381,6 +381,8 @@ export type RawLedgerData = {
   observations: Observation[];
   watched: WatchedEntry[];
   incidents_md: string;
+  /** docs/incident-summaries.md from the refledger repo. */
+  incident_summaries_md: string;
   public_key_md: string;
   method_md: string;
   /** Object cache from data branch objects.jsonl (sha → record). */
