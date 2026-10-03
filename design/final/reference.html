@@ -217,7 +217,7 @@ function assess(item, sha) {
   if (item.kind === 'sha') {
     var known = KNOWN[item.ref];
     if (known && item.comment && item.comment !== known) {
-      r.status = 'Pinned, but the comment is wrong'; r.detail = 'This commit was never ' + item.comment + '. It is ' + known + ". This action's own code cannot move, but the label will mislead whoever updates it next.";
+      r.status = 'Pinned, but the comment is wrong'; r.detail = item.comment + ' has not pointed at this commit since we started watching. It is ' + known + ". This action's own code cannot move, but the label will mislead whoever updates it next.";
       r.fix = item.target + '@' + item.ref + ' # ' + known; r.attn = true;
     } else { r.status = 'Pinned to a commit. Nothing to do.'; r.detail = "This action's own code cannot change. If it calls other actions or images by tag, those can still move."; }
     if (w) r.link = { href: '#/a/' + item.key, text: 'See its history' };
