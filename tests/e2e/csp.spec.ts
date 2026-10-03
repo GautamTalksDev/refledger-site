@@ -60,9 +60,14 @@ test('in-browser verifier works under CSP', async ({ page }) => {
 test('privacy and security pages render', async ({ page }) => {
   await page.goto('/privacy');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Privacy');
-  await expect(page.getByText('[PRIVACY CONTACT]')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'developwith.gt@gmail.com' }),
+  ).toHaveAttribute('href', 'mailto:developwith.gt@gmail.com');
+  await expect(page.getByText('[PRIVACY CONTACT]')).toHaveCount(0);
   await page.goto('/security');
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Security');
   await page.goto('/.well-known/security.txt');
-  await expect(page.locator('body')).toContainText('Contact:');
+  await expect(page.locator('body')).toContainText(
+    'github.com/GautamTalksDev/refledger/security/advisories/new',
+  );
 });

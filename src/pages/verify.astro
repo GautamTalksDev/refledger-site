@@ -22,6 +22,7 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
   canonicalPath="/verify"
   nav="verify"
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  ledgerAsOfIso={data.buildTime}
   latestSeq={tipSeq}
 >
   <div class="wrap u-e47c4d83">

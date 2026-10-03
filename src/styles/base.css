@@ -297,6 +297,23 @@ nav.main a[aria-current='page'] {
   color: var(--ink2);
   font-family: var(--font-ins);
 }
+.stale-notice {
+  margin: 0;
+  padding: 8px 32px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink3);
+  font-family: var(--font-ins);
+}
+.stale-notice[hidden] {
+  display: none;
+}
+@media (max-width: 860px) {
+  .stale-notice {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
 .dot {
   width: 8px;
   height: 8px;

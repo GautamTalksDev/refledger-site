@@ -13,6 +13,28 @@ export const USER_AGENT = `refledger-watchdog (+${OPERATIONS_CONTACT})`;
 /** Watchdog cadence: every 15 minutes. */
 export const WATCHDOG_CRON = "*/15 * * * *";
 
+export {
+  REBUILD_CRON,
+  MAX_REBUILDS_PER_DAY,
+  PAGES_FREE_BUILDS_PER_MONTH,
+  MONTHLY_REBUILD_MATH,
+  decideRebuild,
+  runRebuild,
+  memoryStateStore,
+  kvStateStore,
+  type RebuildState,
+  type StateStore,
+  type RebuildReason,
+} from "./rebuild";
+
+import {
+  REBUILD_CRON,
+  runRebuild,
+  kvStateStore,
+  memoryStateStore,
+  type StateStore,
+} from "./rebuild";
+
 export const ISSUE_TITLE = "Watchdog: observatory unhealthy";
 
 export const REFLEDGER_REPO_OWNER = "GautamTalksDev";
@@ -22,6 +44,8 @@ export const DATA_BRANCH = "data";
 export const MAIN_BRANCH = "main";
 export const HEADS_PATH = "data/log/heads.jsonl";
 
+export const HEADS_RAW_URL = `https://raw.githubusercontent.com/${REFLEDGER_REPO_OWNER}/${REFLEDGER_REPO_NAME}/${MAIN_BRANCH}/${HEADS_PATH}`;
+
 /** Thresholds */
 export const DATA_COMMIT_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 export const HEAD_MAX_AGE_MS = 26 * 60 * 60 * 1000; // 26 hours
@@ -29,6 +53,13 @@ export const WITNESS_BACKLOG_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 export interface Env {
   GITHUB_TOKEN: string;
+  /** Cloudflare Pages deploy hook URL (secret). */
+  DEPLOY_HOOK_URL?: string;
+  /** Optional KV for rebuild counters. Falls back to per-isolate memory. */
+  STATE?: {
+    get: (key: string) => Promise<string | null>;
+    put: (key: string, value: string) => Promise<void>;
+  };
 }
 
 export interface RefledgerHead {
@@ -452,22 +483,65 @@ export async function handleHealthResults(
   }
 }
 
+function stateStoreFor(env: Env): StateStore {
+  if (env.STATE) return kvStateStore(env.STATE);
+  // Without KV, counters reset when the isolate is recycled. Prefer configuring STATE.
+  return memoryStateStore();
+}
+
+export async function handleScheduled(
+  controller: { cron: string },
+  env: Env,
+  fetchImpl: FetchLike,
+  log: LogFn,
+  now: Date = new Date(),
+): Promise<void> {
+  const store = stateStoreFor(env);
+
+  if (controller.cron === WATCHDOG_CRON) {
+    const checks = await runHealthChecks(env.GITHUB_TOKEN, fetchImpl, now);
+    await handleHealthResults(env.GITHUB_TOKEN, fetchImpl, checks, log);
+    // After a new daily seal, rebuild the site once (subject to the daily cap).
+    await runRebuild({
+      mode: "after_seal",
+      stateStore: store,
+      deployHookUrl: env.DEPLOY_HOOK_URL,
+      fetchImpl,
+      headsUrl: HEADS_RAW_URL,
+      userAgent: USER_AGENT,
+      now,
+      log,
+    });
+    return;
+  }
+
+  if (controller.cron === REBUILD_CRON) {
+    await runRebuild({
+      mode: "scheduled",
+      stateStore: store,
+      deployHookUrl: env.DEPLOY_HOOK_URL,
+      fetchImpl,
+      headsUrl: HEADS_RAW_URL,
+      userAgent: USER_AGENT,
+      now,
+      log,
+    });
+    return;
+  }
+
+  log(`dispatch unknown_cron=${controller.cron}`);
+}
+
 const worker = {
   async scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: Env,
     _ctx: ExecutionContext,
   ): Promise<void> {
-    const now = new Date();
-    const checks = await runHealthChecks(
-      env.GITHUB_TOKEN,
+    await handleScheduled(
+      controller,
+      env,
       globalThis.fetch as FetchLike,
-      now,
-    );
-    await handleHealthResults(
-      env.GITHUB_TOKEN,
-      globalThis.fetch as FetchLike,
-      checks,
       (msg) => console.log(msg),
     );
   },

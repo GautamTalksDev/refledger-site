@@ -47,6 +47,59 @@ test('404 page', async ({ page }) => {
   await axeOk(page);
 });
 
+test('ledger chip uses build data; stale notice respects clock', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const chip = page.locator('[data-ledger-as-of]');
+  await expect(chip).toBeVisible();
+  const iso = await chip.getAttribute('data-ledger-as-of');
+  const label = await chip.getAttribute('data-ledger-label');
+  expect(iso).toBeTruthy();
+  expect(label).toMatch(/UTC$/);
+  await expect(chip).toContainText(label!);
+
+  const freshMs = Date.parse(iso!) + 60 * 60 * 1000;
+  const staleMs = Date.parse(iso!) + 7 * 60 * 60 * 1000;
+
+  await page.addInitScript((fixed) => {
+    const RealDate = Date;
+    class FakeDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        if (args.length === 0) super(fixed);
+        else super(...args);
+      }
+      static now() {
+        return fixed;
+      }
+    }
+    // @ts-expect-error test clock
+    window.Date = FakeDate;
+  }, freshMs);
+  await page.goto('/');
+  await expect(page.locator('#stale-notice')).toBeHidden();
+
+  await page.addInitScript((fixed) => {
+    const RealDate = Date;
+    class FakeDate extends RealDate {
+      constructor(...args: ConstructorParameters<typeof Date>) {
+        if (args.length === 0) super(fixed);
+        else super(...args);
+      }
+      static now() {
+        return fixed;
+      }
+    }
+    // @ts-expect-error test clock
+    window.Date = FakeDate;
+  }, staleMs);
+  await page.goto('/');
+  await expect(page.locator('#stale-notice')).toBeVisible();
+  await expect(page.locator('#stale-notice')).toContainText(
+    `Data is from ${label}. Our last update was delayed.`,
+  );
+});
+
 test('live check: actions/checkout', async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto('/check?repo=actions/checkout');

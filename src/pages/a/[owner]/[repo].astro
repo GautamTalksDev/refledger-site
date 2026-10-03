@@ -136,6 +136,7 @@ if (archiveTag && repo.watched_since) {
   canonicalPath={`/a/${repoKey}`}
   ogImage={`/og/a/${owner}/${repoKey.split('/')[1]}.png`}
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  ledgerAsOfIso={data.buildTime}
   latestSeq={tipSeq}
 >
   <div class="wrap u-ed929bb2">

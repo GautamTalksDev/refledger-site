@@ -567,14 +567,14 @@ npx wrangler tail  # Watch logs
 
 ---
 
-### ⏳ 3.11 Fill [PRIVACY CONTACT] placeholder
+### ✅ 3.11 Fill privacy contact (done)
 
 **File:** `src/pages/privacy.astro` line 72.
 
 **Replace:**
 ```astro
 <!-- Before: -->
-<span class="mono">[PRIVACY CONTACT]</span>
+<a href="mailto:developwith.gt@gmail.com">developwith.gt@gmail.com</a>
 
 <!-- After: -->
 <a href="mailto:privacy@gautamkhosla.com">privacy@gautamkhosla.com</a>
@@ -585,7 +585,7 @@ npx wrangler tail  # Watch logs
 **Verify placeholder removed:**
 ```bash
 cd /home/gautamtalksdev/projects/refledger-site
-grep -r "PRIVACY CONTACT" src/
+grep -r "developwith.gt@gmail.com" src/
 ```
 
 Should return no results.
@@ -595,6 +595,22 @@ Should return no results.
 ---
 
 ## Phase 4: Cloudflare Pages Deployment
+
+### ⏳ 4.x Create Pages deploy hook and wire watchdog
+
+1. Cloudflare → Pages project → Settings → Deploy hooks → Create hook (branch `main`)
+2. In `watchdog/`:
+   ```bash
+   wrangler secret put DEPLOY_HOOK_URL
+   wrangler secret put GITHUB_TOKEN
+   wrangler deploy
+   ```
+3. Optional: create KV `WATCHDOG_STATE` and bind as `STATE` in `watchdog/wrangler.toml`
+4. Confirm logs show `rebuild triggered mode=scheduled` within 3 hours, and
+   `mode=after_seal` after the next daily seal
+5. If rebuilds stop: see RUNBOOK § rebuilds and `watchdog/README.md`
+
+
 
 ### ⏳ 4.1 Create Cloudflare Pages project
 
@@ -846,7 +862,7 @@ Should return no results (or only "In development" disclaimers).
 - [ ] Home page loads
 - [ ] /check page: paste `actions/checkout@v4`, click Check
 - [ ] /verify page: verifier instructions visible
-- [ ] /privacy page: no [PRIVACY CONTACT] placeholder
+- [x] /privacy page: mailto developwith.gt@gmail.com (security.txt still uses GitHub private reporting)
 - [ ] /security page: links to SECURITY.md work
 - [ ] /how page: explanations render correctly
 - [ ] No console errors (F12 → Console)
@@ -954,7 +970,7 @@ git checkout origin/data
 
 1. ✅ 2026-10-09 seal verified with strict mode
 2. ✅ All Phase 3 hardening steps done (CSP, Trusted Types, actions pinned, branch protection, SBOMs, watchdog)
-3. ✅ [PRIVACY CONTACT] placeholder filled
+3. ✅ Privacy contact set to developwith.gt@gmail.com
 4. ✅ Site deployed to refledger.gautamkhosla.com with HTTPS, HSTS, TLS 1.2+
 5. ✅ All site checks and E2E tests pass
 6. ✅ No em/en/double-dash in prose (except code fences)

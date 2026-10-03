@@ -321,7 +321,7 @@ These are documented, accepted limitations during the M1 measurement window:
 
 1. **Watchdog not deployed:** Code exists at `watchdog/`; operator must create a fine-grained GitHub token and run wrangler deploy.
 2. **Site not public / no Pages deploy yet:** Operator action.
-3. **`[PRIVACY CONTACT]` placeholder:** Still present on `/privacy` (and asserted in `tests/e2e/csp.spec.ts` until filled).
+3. **Privacy contact:** Set to mailto:developwith.gt@gmail.com on `/privacy`. `security.txt` still uses GitHub private vulnerability reporting.
 4. **refledger-site branch protection blocked:** Private repo needs GitHub Pro or public visibility. Rulesets already active on GautamTalksDev/refledger and GautamTalksDev/canary.
 5. **CodeQL / Scorecard alerts:** Workflows exist; alert visibility needs public repo or GitHub Advanced Security.
 6. **Typecheck noise:** Some pre-existing TypeScript strictness noise; CI uses Vitest, not `tsc`.

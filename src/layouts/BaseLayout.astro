@@ -9,7 +9,10 @@ interface Props {
   ogImage?: string;
   /** Which main nav item is current: home | moved | how | verify */
   nav?: 'home' | 'moved' | 'how' | 'verify' | null;
+  /** Formatted chip label, e.g. "2 Oct, 16:20 UTC", from build-time data only. */
   ledgerAsOf?: string;
+  /** ISO timestamp for the chip; used only to decide the stale notice client-side. */
+  ledgerAsOfIso?: string;
   /** Latest tip seq for footer example link */
   latestSeq?: number;
   exampleAction?: string;
@@ -22,6 +25,7 @@ const {
   ogImage = '/og/default.png',
   nav = null,
   ledgerAsOf,
+  ledgerAsOfIso,
   latestSeq,
   exampleAction = 'reviewdog/action-actionlint',
 } = Astro.props;
@@ -101,13 +105,25 @@ const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
         </nav>
         {
           ledgerAsOf && (
-            <span class="status" title="The most recent data in this build">
+            <span
+              class="status"
+              title="Snapshot time from the ledger data in this build"
+              data-ledger-as-of={ledgerAsOfIso ?? undefined}
+              data-ledger-label={ledgerAsOf}
+            >
               <span class="dot" aria-hidden="true"></span>
               Ledger as of {ledgerAsOf}
             </span>
           )
         }
       </div>
+      <p
+        class="wrap stale-notice"
+        id="stale-notice"
+        hidden
+        role="status"
+        aria-live="polite"
+      ></p>
     </header>
 
     <main id="main" tabindex="-1">
@@ -135,5 +151,13 @@ const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
         </nav>
       </div>
     </footer>
+    {
+      ledgerAsOf && ledgerAsOfIso && (
+        <script>
+          import { bootFreshnessNotice } from '../scripts/freshness-boot';
+          bootFreshnessNotice();
+        </script>
+      )
+    }
   </body>
 </html>

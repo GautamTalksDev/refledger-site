@@ -408,6 +408,35 @@ npm run test:e2e
 
 ---
 
+## Site data freshness
+
+The site is a static Astro build. Ledger data is read at build time. Cloudflare
+Pages rebuilds on git push, and the watchdog also POSTs a Pages deploy hook:
+
+- every 3 hours at minute 7 (`7 */3 * * *`)
+- once after a new daily seal is detected (newest head newer than the last rebuild)
+
+Hard cap: 10 rebuilds per UTC day.
+
+### Monthly arithmetic (Pages Free)
+
+Cloudflare Pages Free allows **500 builds per month** (account-wide). Source:
+https://developers.cloudflare.com/pages/platform/limits/
+
+| Source | Count |
+| --- | ---: |
+| Scheduled (8/day × 31) | 248 |
+| Seal extras (~1/day × 31) | 31 |
+| Hard cap (10/day × 31) | 310 |
+
+310 is under the Free limit of 500.
+
+The header chip "Ledger as of …" is the ledger tip timestamp from the build
+data, not the visitor's clock. If that timestamp is more than 6 hours old, a
+quiet notice appears: "Data is from <time>. Our last update was delayed."
+
+See `watchdog/README.md` for creating the deploy hook and setting `DEPLOY_HOOK_URL`.
+
 ## Privacy
 
 **What this site collects:** Nothing.
@@ -438,7 +467,7 @@ The public ledger stores facts about public repositories: repo names, tag names,
 
 **Contact for data removal:**
 
-If you believe the ledger contains personal data, contact: `[PRIVACY CONTACT]` (placeholder to be filled before launch).
+If you believe the ledger contains personal data, contact [developwith.gt@gmail.com](mailto:developwith.gt@gmail.com).
 
 See [/privacy](https://refledger.gautamkhosla.com/privacy) for full statement.
 

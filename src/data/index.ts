@@ -449,7 +449,16 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     };
   });
 
-  const buildTime = new Date().toISOString();
+  // Chip time comes from ledger content (newest tip), never from the visitor clock.
+  const tipRecorded =
+    entries.length > 0 ? entries[entries.length - 1]!.recorded_at : null;
+  const headRecorded =
+    heads.length > 0 ? heads[heads.length - 1]!.head.recorded_at : null;
+  const buildTime =
+    [tipRecorded, headRecorded]
+      .filter((x): x is string => typeof x === 'string' && x.length > 0)
+      .sort()
+      .at(-1) ?? new Date().toISOString();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const ecosystemMovesLast7Days = traceEvents.filter(
     (t) => !t.isCanary && t.event === 'move' && t.recorded_at >= sevenDaysAgo,

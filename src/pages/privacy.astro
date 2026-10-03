@@ -13,6 +13,7 @@ const updated = '2 October 2026';
   description="What Refledger collects about you, and what it does not."
   canonicalPath="/privacy"
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  ledgerAsOfIso={data.buildTime}
   latestSeq={tipSeq}
 >
   <div class="wrap narrow u-882997a9">
@@ -69,7 +70,9 @@ const updated = '2 October 2026';
         append-only and permanent. It is built never to contain personal data
         such as tagger or commit author names and emails. If you believe an
         entry does contain personal data, contact us at
-        <span class="mono">[PRIVACY CONTACT]</span>.
+        <a href="mailto:developwith.gt@gmail.com" class="mono"
+          >developwith.gt@gmail.com</a
+        >.
       </p>
     </section>
 

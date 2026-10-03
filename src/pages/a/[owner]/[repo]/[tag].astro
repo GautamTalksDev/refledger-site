@@ -72,6 +72,7 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   description={`Binding history for ${repoKey} tag ${tag}.`}
   canonicalPath={`/a/${repoKey}/${tag}`}
   ledgerAsOf={fmtUtc(data.buildTime) + ' UTC'}
+  ledgerAsOfIso={data.buildTime}
   latestSeq={tipSeq}
 >
   <div class="wrap u-ed929bb2">

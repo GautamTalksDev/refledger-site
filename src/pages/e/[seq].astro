@@ -88,6 +88,7 @@ const headline =
   description={`Ledger entry ${seq} (${entry.event}) recorded at ${entry.recorded_at}.`}
   canonicalPath={`/e/${seq}`}
   ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
+  ledgerAsOfIso={data.buildTime}
   latestSeq={tipSeq}
 >
   <div class="wrap u-ed929bb2">
