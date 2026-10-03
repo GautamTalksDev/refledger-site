@@ -27,12 +27,14 @@ export function parseIncidentSummaries(md: string): IncidentSummary[] {
     const nl = part.indexOf('\n');
     const id = (nl === -1 ? part : part.slice(0, nl)).trim();
     const body = nl === -1 ? '' : part.slice(nl + 1);
+    const effect =
+      section(body, 'Effect on watched actions') || section(body, 'Effect');
     const row: IncidentSummary = {
       id,
       when: section(body, 'When'),
       title: section(body, 'Title'),
       happened: section(body, 'What happened'),
-      effect: section(body, 'Effect'),
+      effect,
       changed: section(body, 'What changed'),
       technical: section(body, 'Technical details'),
     };

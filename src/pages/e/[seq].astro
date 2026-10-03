@@ -99,22 +99,26 @@ const rest =
       {
         prev !== null ? (
           <a href={`/e/${prev}`} class="btn b-line small">
-            Entry {prev}
+            Entry {prev}{' '}
           </a>
         ) : (
-          <button type="button" class="btn b-line small" disabled>Oldest entry</button>
+          <button type="button" class="btn b-line small" disabled>
+            Oldest entry{' '}
+          </button>
         )
       }
-      <span class="lbl nums"
-        >The ledger, entry {seq} of {data.chainLength}</span
-      >
+      <span class="lbl nums">
+        The ledger, entry {seq} of {data.chainLength}{' '}
+      </span>
       {
         next !== null ? (
           <a href={`/e/${next}`} class="btn b-line small">
             Entry {next}
           </a>
         ) : (
-          <button type="button" class="btn b-line small" disabled>Newest entry</button>
+          <button type="button" class="btn b-line small" disabled>
+            Newest entry
+          </button>
         )
       }
     </div>

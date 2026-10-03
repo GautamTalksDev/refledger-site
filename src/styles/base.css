@@ -929,6 +929,7 @@ input[type='range'] {
   color: var(--ink2);
   max-width: 68ch;
 }
+.incident-effect,
 .incident-changed {
   margin: 16px 0 0;
   max-width: 68ch;

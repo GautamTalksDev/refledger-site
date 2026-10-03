@@ -143,7 +143,7 @@ if (archiveTag && repo.watched_since) {
     <nav aria-label="Breadcrumb" class="lbl">
       <a class="u-1c9c449e" href="/moved">Watched actions</a> / {owner}
       {repo.canary && (
-        <span class="pill u-5dd2a678">Canary</span>
+        <span class="pill u-5dd2a678"> Canary</span>
       )}
     </nav>
     <h1
@@ -311,19 +311,16 @@ if (archiveTag && repo.watched_since) {
               class="row u-0fb3d30d"
              
             >
-              <span class="ins u-d3799af7">{archiveTag} pointed at</span>
-              <span
-                class="mono u-edd4855e"
-                id="mo-sha"
-               
-                >{moments[moments.length - 1]?.sha}</span
-              >
-              <span class="ins muted u-433de30b" id="mo-note"
-                >{moments[moments.length - 1]?.note}</span
-              >
-              <span class="ins muted u-433de30b" id="mo-window"
-                >{moments[moments.length - 1]?.window || ''}</span
-              >
+              <span class="ins u-d3799af7">{archiveTag} pointed at </span>
+              <span class="mono u-edd4855e" id="mo-sha">
+                {moments[moments.length - 1]?.sha}{' '}
+              </span>
+              <span class="ins muted u-433de30b" id="mo-note">
+                {moments[moments.length - 1]?.note}{' '}
+              </span>
+              <span class="ins muted u-433de30b" id="mo-window">
+                {moments[moments.length - 1]?.window || ''}
+              </span>
             </div>
           </div>
         </section>
@@ -341,16 +338,16 @@ if (archiveTag && repo.watched_since) {
              
             >
               <span class="ins u-433de30b">
-                {fmtUtc(m.recorded_at)}
+                {fmtUtc(m.recorded_at)}{' '}
               </span>
               <span class="mono u-e3ec02ac">
-                {m.tag}
+                {m.tag}{' '}
               </span>
               <span class="u-d3799af7">
-                {m.whatChanged ?? m.event}
+                {m.whatChanged ?? m.event}{' '}
               </span>
               <span class="mono u-5e0faad2">
-                {m.fromToText ?? ''}
+                {m.fromToText ?? ''}{' '}
               </span>
               <span class="ins muted u-5e0faad2">
                 Entry {m.seq}

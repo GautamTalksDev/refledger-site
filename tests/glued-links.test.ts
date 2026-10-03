@@ -13,7 +13,7 @@ function walk(dir: string): string[] {
   return out;
 }
 
-describe('words glued to links', () => {
+describe('words glued to inline elements', () => {
   it('flags a word or period sitting against an anchor', () => {
     const hits = findGluedLinks(
       'Nothing is stored.<a href="/paste">Paste a workflow instead</a>or<a href="/x">try</a>.',
@@ -21,10 +21,38 @@ describe('words glued to links', () => {
     expect(hits.length).toBeGreaterThan(0);
   });
 
-  it('allows explicit spaces around anchors', () => {
+  it('flags words glued across spans', () => {
+    const hits = findGluedLinks(
+      '<span class="pill">Example</span><span class="lbl">A result, before you type</span>',
+    );
+    expect(hits.length).toBeGreaterThan(0);
+  });
+
+  it('allows a trailing space inside the first span', () => {
+    expect(
+      findGluedLinks(
+        '<span class="pill">Example </span><span class="lbl">A result, before you type</span>',
+      ),
+    ).toEqual([]);
+  });
+
+  it('ignores sibling nav anchors with no prose between them', () => {
+    expect(
+      findGluedLinks(
+        '<nav><a href="/">Check a repo</a><a href="/moved">What moved</a></nav>',
+      ),
+    ).toEqual([]);
+  });
+
+  it('allows explicit spaces around inline elements', () => {
     expect(
       findGluedLinks(
         'Nothing is stored. <a href="/paste">Paste a workflow instead</a> or <a href="/x">try an example</a>.',
+      ),
+    ).toEqual([]);
+    expect(
+      findGluedLinks(
+        '<span class="pill">Example</span> <span class="lbl">A result, before you type</span>',
       ),
     ).toEqual([]);
   });

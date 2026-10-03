@@ -62,10 +62,10 @@ function hrefFor(ev: (typeof feed)[0]): string {
        
         aria-hidden="true"
       >
-        <span>Seen, UTC</span>
-        <span>Action and tag</span>
-        <span>What changed</span>
-        <span>From, to</span>
+        <span>Seen, UTC </span>
+        <span>Action and tag </span>
+        <span>What changed </span>
+        <span>From, to </span>
         <span>Severity</span>
       </div>
       {
@@ -79,33 +79,33 @@ function hrefFor(ev: (typeof feed)[0]): string {
               data-canary={r.isCanary ? '1' : '0'}
             >
               <span class="ins u-433de30b">
-                {fmtUtc(r.recorded_at)}
+                {fmtUtc(r.recorded_at)}{' '}
               </span>
               <span>
                 <b>{r.repo}</b>{' '}
                 <span class="mono u-5e0faad2">
-                  {r.tag}
+                  {r.tag}{' '}
                 </span>
                 {r.isCanary && (
                   <span class="pill u-46cec891">
-                    Canary
+                    Canary{' '}
                   </span>
                 )}
               </span>
               <span class="u-d3799af7">
-                {r.whatChanged ?? r.event}
+                {r.whatChanged ?? r.event}{' '}
                 {correction && (
                   <span
                     class="ins u-deed5ff9"
                    
                   >
                     Corrected: the signed entry called this a content change. It
-                    was not.
+                    was not.{' '}
                   </span>
                 )}
               </span>
               <span class="mono u-5e0faad2">
-                {r.fromToText ?? ''}
+                {r.fromToText ?? ''}{' '}
               </span>
               <span class="u-5e0faad2"
                 class:list={['ins', severityClass(r.severity)]}

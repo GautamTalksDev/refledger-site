@@ -29,7 +29,7 @@ for (const file of walk(dist)) {
   }
 }
 if (failed) {
-  console.error('Words are glued to links.');
+  console.error('Words are glued across inline elements.');
   process.exit(1);
 }
-console.log('Inline link spacing OK');
+console.log('Inline element spacing OK');

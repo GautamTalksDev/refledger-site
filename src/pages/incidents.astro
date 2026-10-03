@@ -35,8 +35,10 @@ if (!incidents.length) {
           <li class="paper incident">
             <p class="lbl nums">{x.when}</p>
             <h2 class="h3">{x.title}</h2>
-            <p class="incident-body">
-              {x.happened} {x.effect}
+            <p class="incident-body">{x.happened}</p>
+            <p class="incident-effect">
+              <span class="lbl">Effect on watched actions. </span>
+              {x.effect}
             </p>
             <p class="incident-changed">
               <span class="lbl">What changed. </span>

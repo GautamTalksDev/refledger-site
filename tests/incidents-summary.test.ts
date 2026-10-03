@@ -18,7 +18,7 @@ A short title
 
 Something happened in the poller.
 
-### Effect
+### Effect on watched actions
 
 The record kept the original row.
 
@@ -51,7 +51,7 @@ describe('incident summaries', () => {
     const file = path.resolve('.cache/refledger-main/docs/incident-summaries.md');
     expect(existsSync(file), 'fetch-data should clone incident-summaries.md').toBe(true);
     const rows = parseIncidentSummaries(readFileSync(file, 'utf8'));
-    expect(rows.length).toBe(8);
+    expect(rows.length).toBe(9);
     for (const row of rows) {
       expect(row.title.length).toBeGreaterThan(8);
       expect(row.happened.endsWith('.')).toBe(true);
@@ -60,6 +60,10 @@ describe('incident summaries', () => {
       expect(row.technical.length).toBeGreaterThan(20);
       const blob = `${row.title} ${row.happened} ${row.effect} ${row.changed}`;
       expect(blob).not.toMatch(/[\u2013\u2014]|--/);
+      expect(blob).not.toMatch(
+        /\b(peel|binding|listing-only|needs_peel|object cache|heads line|freeze)\b/i,
+      );
+      expect(blob).not.toMatch(/\b409\b/);
     }
     expect(rows.map((r) => r.id)).toEqual([
       'false-422',
@@ -70,6 +74,7 @@ describe('incident summaries', () => {
       'heads-line-rewrite-2026-10-01',
       'batch-listing-only-prior',
       'tree-invariant-2026-10-02',
+      'peel-deferred-drop',
     ]);
   });
 });
