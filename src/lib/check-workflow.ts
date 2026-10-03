@@ -481,15 +481,86 @@ export function fixedFiles(
   });
 }
 
+const SEGMENT = /^[A-Za-z0-9_.-]+$/;
+
+export type RepoParseResult =
+  | { kind: 'repo'; repo: string }
+  | { kind: 'account'; account: string }
+  | { kind: 'gist' }
+  | { kind: 'host' }
+  | { kind: 'invalid' };
+
+/**
+ * Reduce anything a visitor might paste into a GitHub repository key.
+ * Extra path segments (tree, blob, pull, issues, …), query strings, and
+ * fragments are dropped. Matching of host names is case insensitive.
+ */
+export function parseRepoInput(raw: string): RepoParseResult {
+  const s = String(raw ?? '').trim();
+  if (!s) return { kind: 'invalid' };
+
+  if (
+    /^(?:https?:\/\/)?(?:www\.)?gist\.github\.com\b/i.test(s) ||
+    /^git@gist\.github\.com:/i.test(s)
+  ) {
+    return { kind: 'gist' };
+  }
+
+  if (
+    /^(?:https?:\/\/)?(?:www\.)?(?:gitlab\.com|bitbucket\.org|codeberg\.org)\b/i.test(
+      s,
+    ) ||
+    /^git@(?:gitlab\.com|bitbucket\.org|codeberg\.org):/i.test(s)
+  ) {
+    return { kind: 'host' };
+  }
+
+  const httpHost = s.match(/^(?:https?:\/\/)(?:www\.)?([^/?#]+)/i);
+  if (httpHost && !/^github\.com$/i.test(httpHost[1])) {
+    return { kind: 'host' };
+  }
+
+  let path = s;
+  const ssh = path.match(/^git@github\.com:(.+)$/i);
+  if (ssh) {
+    path = ssh[1];
+  } else {
+    path = path.replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\/?/i, '');
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path)) {
+    return { kind: 'host' };
+  }
+  if (/^git@/i.test(path)) {
+    return { kind: 'host' };
+  }
+
+  path = path.split(/[?#]/, 1)[0] ?? '';
+  path = path.replace(/\/+$/, '');
+  if (!path) return { kind: 'invalid' };
+
+  const parts = path.split('/').filter((p) => p.length > 0);
+  if (parts.length === 0) return { kind: 'invalid' };
+
+  const owner = parts[0];
+  if (!SEGMENT.test(owner) || owner.includes('..')) return { kind: 'invalid' };
+
+  if (parts.length === 1) {
+    return { kind: 'account', account: owner };
+  }
+
+  const repoName = parts[1].replace(/\.git$/i, '');
+  if (!SEGMENT.test(repoName) || repoName.includes('..')) {
+    return { kind: 'invalid' };
+  }
+
+  return { kind: 'repo', repo: `${owner}/${repoName}` };
+}
+
+/** owner/name, or null when the input is not a single repository. */
 export function normalizeRepo(input: string): string | null {
-  const repo = input
-    .trim()
-    .replace(/^https?:\/\/github\.com\//i, '')
-    .replace(/\/$/, '')
-    .replace(/\.git$/i, '');
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return null;
-  if (repo.includes('..')) return null;
-  return repo;
+  const parsed = parseRepoInput(input);
+  return parsed.kind === 'repo' ? parsed.repo : null;
 }
 
 export const EXAMPLE_FILES: WorkflowFile[] = [

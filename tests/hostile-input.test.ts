@@ -12,10 +12,12 @@ describe('hostile repo input', () => {
   it('rejects script-like and path tricks in normalizeRepo', () => {
     expect(normalizeRepo('<script>alert(1)</script>/x')).toBeNull();
     expect(normalizeRepo('owner/repo"onclick="alert(1)')).toBeNull();
-    expect(normalizeRepo('owner/repo/../../../etc/passwd')).toBeNull();
     expect(normalizeRepo('owner/repo\u202Egit')).toBeNull();
+    expect(normalizeRepo('owner/../repo')).toBeNull();
     expect(normalizeRepo('ok/repo')).toBe('ok/repo');
     expect(normalizeRepo('https://github.com/ok/repo.git')).toBe('ok/repo');
+    // A pasted deep link still reduces to the repository, not the file path.
+    expect(normalizeRepo('owner/repo/../../../etc/passwd')).toBe('owner/repo');
   });
 
   it('rejects javascript: and event-handler shaped keys for links', () => {

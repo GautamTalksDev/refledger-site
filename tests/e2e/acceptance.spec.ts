@@ -126,6 +126,35 @@ test('live check: octocat/Hello-World', async ({ page }) => {
   );
 });
 
+test('accepts a pasted GitHub tree link and normalises the URL', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  const pasted =
+    'https://github.com/kunal-kushwaha/DSA-Bootcamp-Java/tree/main';
+  await page.goto(`/check?repo=${encodeURIComponent(pasted)}`);
+  await expect(page).toHaveURL(/\/check\?repo=kunal-kushwaha%2FDSA-Bootcamp-Java$/);
+  await expect(page.locator('#check-root')).not.toContainText(
+    /doesn.t look like a repository/i,
+  );
+  await expect(page.locator('#check-root')).toContainText(
+    /kunal-kushwaha\/DSA-Bootcamp-Java|action|pin|workflow|uses:|No workflows|slow down|too large/i,
+    { timeout: 60_000 },
+  );
+});
+
+test('explains when the paste is only a GitHub account', async ({ page }) => {
+  await page.goto(
+    `/check?repo=${encodeURIComponent('https://github.com/campus-experts')}`,
+  );
+  await expect(page.locator('#check-root')).toContainText(
+    "That's a GitHub account, not a repository.",
+  );
+  await expect(page.locator('#check-root')).toContainText(
+    'campus-experts/repo-name',
+  );
+});
+
 test('how it works: hash chain breaks on edit', async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto('/how');

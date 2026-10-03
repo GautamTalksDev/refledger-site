@@ -10,7 +10,7 @@ import {
   localSkipLabel,
   loadRepo,
   orderResults,
-  normalizeRepo,
+  parseRepoInput,
   parseFiles,
   resolveSha,
   type AssessResult,
@@ -294,15 +294,40 @@ export async function runCheck(
     return;
   }
 
-  const repo = normalizeRepo(source.repo || '');
-  if (!repo) {
-    state = {
-      phase: 'error',
-      title: "That doesn't look like a repository.",
-      body: 'Use the owner and name, like actions/checkout or your-org/your-repo.',
-    };
+  const parsed = parseRepoInput(source.repo || '');
+  if (parsed.kind !== 'repo') {
+    if (parsed.kind === 'account') {
+      state = {
+        phase: 'error',
+        title: "That's a GitHub account, not a repository.",
+        body: `Add the repository name, like ${parsed.account}/repo-name.`,
+      };
+    } else if (parsed.kind === 'host') {
+      state = {
+        phase: 'error',
+        title: 'Refledger checks GitHub repositories only.',
+        body: 'Paste a github.com owner/name, or a link to one.',
+      };
+    } else if (parsed.kind === 'gist') {
+      state = {
+        phase: 'error',
+        title: "That's a gist.",
+        body: 'Paste its workflow file instead.',
+      };
+    } else {
+      state = {
+        phase: 'error',
+        title: "That doesn't look like a repository.",
+        body: 'Use the owner and name, like actions/checkout or your-org/your-repo.',
+      };
+    }
     renderState(root, state);
     return;
+  }
+  const repo = parsed.repo;
+  const clean = `/check?repo=${encodeURIComponent(repo)}`;
+  if (`${location.pathname}${location.search}` !== clean) {
+    history.replaceState(null, '', clean);
   }
   state.repo = repo;
   renderState(root, state);
@@ -423,7 +448,9 @@ export function bootHomePage(payload: PublicLedgerPayload) {
     const input = form.querySelector('input');
     const v = input?.value.trim();
     if (!v) return;
-    location.href = `/check?repo=${encodeURIComponent(v)}`;
+    const parsed = parseRepoInput(v);
+    const param = parsed.kind === 'repo' ? parsed.repo : v;
+    location.href = `/check?repo=${encodeURIComponent(param)}`;
   });
   document.querySelector('[data-act="example"]')?.addEventListener('click', () => {
     location.href = '/check?example=1';
