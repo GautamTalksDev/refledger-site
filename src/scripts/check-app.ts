@@ -113,7 +113,7 @@ function renderState(root: HTMLElement, st: CheckState) {
   let head: string;
   if (res.length === 0) head = "We didn't find any actions to check.";
   else if (risky === 0 && wrongComments === 0)
-    head = `All ${res.length} of your actions are pinned. Nothing can change under you.`;
+    head = `All ${res.length} of your actions are pinned. Their own code cannot change under you.`;
   else if (risky === 0)
     head =
       'Your actions are pinned, but ' +

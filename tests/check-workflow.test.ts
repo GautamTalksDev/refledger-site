@@ -168,11 +168,13 @@ describe('assess pin comments', () => {
     );
     expect(r.attn).toBe(false);
     expect(r.status).toBe('Pinned to a commit. Nothing to do.');
+    expect(r.detail).toContain("This action's own code cannot change");
     expect(r.detail).toContain('v7.0.1');
     expect(r.detail).toContain('exact version');
     expect(r.fix).toBeNull();
     expect(r.status).not.toMatch(/wrong/i);
     expect(r.detail).not.toMatch(/\bnever\b/i);
+    expect(r.detail).not.toMatch(/always runs the same code/i);
   });
 
   it('accepts an exact tag comment on its current commit', () => {
@@ -197,6 +199,7 @@ describe('assess pin comments', () => {
     expect(r.fix).toBeNull();
     expect(r.status).toMatch(/has moved on since/);
     expect(r.status).not.toMatch(/wrong/i);
+    expect(r.detail).toContain("This action's own code cannot move");
     expect(r.detail).not.toMatch(/\bnever\b/i);
   });
 
@@ -210,7 +213,9 @@ describe('assess pin comments', () => {
     expect(r.status).toBe('Pinned, but the comment is wrong');
     expect(r.detail).toContain('since we started watching on 29 September');
     expect(r.detail).toContain('v4.2.2');
+    expect(r.detail).toContain("This action's own code cannot move");
     expect(r.detail).not.toMatch(/\bnever\b/i);
+    expect(r.detail).not.toMatch(/always runs the same code/i);
     expect(r.fix).toContain('# v4.2.2');
   });
 
