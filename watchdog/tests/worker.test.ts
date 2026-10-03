@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   OPERATIONS_CONTACT,
+  REBUILD_CRON,
   USER_AGENT,
   WATCHDOG_CRON,
+  handleScheduled,
+  type Env,
   type FetchLike,
 } from "../src/index";
 
@@ -97,11 +100,38 @@ describe("scheduled handler", () => {
       );
 
       expect(logs.some((l) => l.includes("health_check"))).toBe(true);
+      // No STATE binding: rebuild refused; health still ran.
+      expect(logs.some((l) => l.includes("rebuild skipped=no_state"))).toBe(
+        true,
+      );
     } finally {
       globalThis.fetch = original;
       globalThis.Date = originalDate;
       logSpy.mockRestore();
     }
+  });
+
+  it("skips rebuild with no_hook when STATE is bound but DEPLOY_HOOK_URL is absent", async () => {
+    const logs: string[] = [];
+    const kv = new Map<string, string>();
+    const env: Env = {
+      GITHUB_TOKEN: TOKEN,
+      STATE: {
+        get: async (key) => kv.get(key) ?? null,
+        put: async (key, value) => {
+          kv.set(key, value);
+        },
+      },
+    };
+    await handleScheduled(
+      { cron: REBUILD_CRON },
+      env,
+      vi.fn(),
+      (m) => logs.push(m),
+      new Date("2026-10-03T12:00:00Z"),
+    );
+    expect(logs.some((l) => l.includes("rebuild skipped=no_hook"))).toBe(true);
+    expect(logs.some((l) => l.includes("no_state"))).toBe(false);
   });
 
   it("never logs the GitHub token", async () => {

@@ -26,8 +26,8 @@ function hrefFor(ev: (typeof feed)[0]): string {
   description="Every tag move Refledger has recorded, newest first."
   canonicalPath="/moved"
   nav="moved"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap u-e47c4d83">

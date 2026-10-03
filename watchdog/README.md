@@ -45,9 +45,10 @@ https://developers.cloudflare.com/pages/platform/limits/
    - **Permissions**: Issues → Read and Write only
    - **Expiration**: recommend 90 days with a calendar reminder to rotate
 
-2. A Cloudflare Pages deploy hook for the site project (see below)
+2. A Workers KV namespace for rebuild counters (required; rebuilds refuse without it)
 
-3. Optional but recommended: a Workers KV namespace for rebuild counters
+3. A Cloudflare Pages deploy hook for the site project (optional until the Pages
+   project exists; without it rebuilds log `skipped=no_hook` and health still runs)
 
 4. Cloudflare Workers CLI (`wrangler`) installed
 
@@ -64,7 +65,7 @@ https://developers.cloudflare.com/pages/platform/limits/
 From the `watchdog/` directory:
 
 ```bash
-# Optional: persistent daily rebuild counters
+# Required: persistent daily rebuild counters and after-seal state
 wrangler kv namespace create WATCHDOG_STATE
 # Paste the id into wrangler.toml under [[kv_namespaces]] binding = "STATE"
 
@@ -72,13 +73,18 @@ wrangler kv namespace create WATCHDOG_STATE
 wrangler secret put GITHUB_TOKEN
 # Paste the fine-grained Issues token
 
-wrangler secret put DEPLOY_HOOK_URL
-# Paste the Pages deploy hook URL
+# Optional until the Pages project exists. Without it, rebuilds log
+# rebuild skipped=no_hook and do nothing; health alerting still works.
+# wrangler secret put DEPLOY_HOOK_URL
 
 wrangler deploy
 ```
 
 Crons after deploy: `*/15 * * * *` (health + after-seal) and `7 */3 * * *` (scheduled rebuild).
+
+Without the `STATE` KV binding, rebuild crons log
+`rebuild skipped=no_state reason=STATE_KV_required_for_daily_cap_and_after_seal`
+and skip. Health checks and GitHub issue alerting still run.
 
 ## Testing
 
@@ -91,7 +97,8 @@ npm test
 
 1. Cloudflare → Workers → `refledger-watchdog` → Logs: look for
    `rebuild skipped=...`, `deploy_hook status=...`, or `daily_cap`
-2. Confirm `DEPLOY_HOOK_URL` is still set: `wrangler secret list`
+2. Confirm `STATE` KV is bound and `DEPLOY_HOOK_URL` is set when Pages exists:
+   `wrangler secret list`
 3. In Pages → Deployments, confirm deploy-hook builds appear
 4. If the site chip shows the delay notice ("Our last update was delayed"),
    trigger a manual deploy from the Pages dashboard or re-POST the hook

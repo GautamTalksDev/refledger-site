@@ -12,8 +12,8 @@ const updated = '2 October 2026';
   title="Privacy · Refledger"
   description="What Refledger collects about you, and what it does not."
   canonicalPath="/privacy"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap narrow u-882997a9">

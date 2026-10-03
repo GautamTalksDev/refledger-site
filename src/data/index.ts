@@ -6,6 +6,7 @@
 import { computeGapBands, type GapBand } from './gaps';
 import { resolvePinCommit, type ObjectRecord } from './objects';
 import { fetchLedgerData } from './fetch';
+import { newestObservedAt } from '../lib/freshness';
 import {
   describeFromTo,
   describeWhatChanged,
@@ -99,7 +100,10 @@ export type SiteData = {
   traceEvents: TraceEvent[];
   correlationCaptions: CorrelationCaption[];
   genesisAt: string;
+  /** Newest ledger tip / head timestamp (moves and seals). */
   buildTime: string;
+  /** Newest observation.observed_at on the data branch (last check). */
+  lastCheckedAt: string;
   chainLength: number;
   signingKeyPrefix: string;
   signingKeyShort: string;
@@ -449,7 +453,7 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     };
   });
 
-  // Chip time comes from ledger content (newest tip), never from the visitor clock.
+  // Tip/head time: newest ledger entry (moves/seals). Used for walls and API.
   const tipRecorded =
     entries.length > 0 ? entries[entries.length - 1]!.recorded_at : null;
   const headRecorded =
@@ -459,6 +463,8 @@ function buildSiteData(raw: RawLedgerData): SiteData {
       .filter((x): x is string => typeof x === 'string' && x.length > 0)
       .sort()
       .at(-1) ?? new Date().toISOString();
+  // Freshness chip: newest observation (last check), not the tip.
+  const lastCheckedAt = newestObservedAt(observations) ?? buildTime;
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const ecosystemMovesLast7Days = traceEvents.filter(
     (t) => !t.isCanary && t.event === 'move' && t.recorded_at >= sevenDaysAgo,
@@ -524,6 +530,7 @@ function buildSiteData(raw: RawLedgerData): SiteData {
     correlationCaptions,
     genesisAt: entries[0]?.recorded_at ?? buildTime,
     buildTime,
+    lastCheckedAt,
     chainLength: entries.length,
     signingKeyPrefix: pubkey.slice(0, 4),
     signingKeyShort: pubkey.slice(0, 32),

@@ -27,13 +27,7 @@ export {
   type RebuildReason,
 } from "./rebuild";
 
-import {
-  REBUILD_CRON,
-  runRebuild,
-  kvStateStore,
-  memoryStateStore,
-  type StateStore,
-} from "./rebuild";
+import { REBUILD_CRON, runRebuild, kvStateStore } from "./rebuild";
 
 export const ISSUE_TITLE = "Watchdog: observatory unhealthy";
 
@@ -53,9 +47,12 @@ export const WITNESS_BACKLOG_MAX_AGE_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 export interface Env {
   GITHUB_TOKEN: string;
-  /** Cloudflare Pages deploy hook URL (secret). */
+  /** Cloudflare Pages deploy hook URL (secret). Absent until the Pages project exists. */
   DEPLOY_HOOK_URL?: string;
-  /** Optional KV for rebuild counters. Falls back to per-isolate memory. */
+  /**
+   * Required KV for rebuild counters and after-seal state.
+   * Rebuild logic refuses to run without it; health checks still run.
+   */
   STATE?: {
     get: (key: string) => Promise<string | null>;
     put: (key: string, value: string) => Promise<void>;
@@ -483,10 +480,32 @@ export async function handleHealthResults(
   }
 }
 
-function stateStoreFor(env: Env): StateStore {
-  if (env.STATE) return kvStateStore(env.STATE);
-  // Without KV, counters reset when the isolate is recycled. Prefer configuring STATE.
-  return memoryStateStore();
+/**
+ * Rebuilds need persistent STATE. Without KV, skip and leave health alone.
+ */
+export async function runRebuildIfConfigured(
+  mode: "scheduled" | "after_seal",
+  env: Env,
+  fetchImpl: FetchLike,
+  log: LogFn,
+  now: Date,
+): Promise<void> {
+  if (!env.STATE) {
+    log(
+      "rebuild skipped=no_state reason=STATE_KV_required_for_daily_cap_and_after_seal",
+    );
+    return;
+  }
+  await runRebuild({
+    mode,
+    stateStore: kvStateStore(env.STATE),
+    deployHookUrl: env.DEPLOY_HOOK_URL,
+    fetchImpl,
+    headsUrl: HEADS_RAW_URL,
+    userAgent: USER_AGENT,
+    now,
+    log,
+  });
 }
 
 export async function handleScheduled(
@@ -496,36 +515,16 @@ export async function handleScheduled(
   log: LogFn,
   now: Date = new Date(),
 ): Promise<void> {
-  const store = stateStoreFor(env);
-
   if (controller.cron === WATCHDOG_CRON) {
     const checks = await runHealthChecks(env.GITHUB_TOKEN, fetchImpl, now);
     await handleHealthResults(env.GITHUB_TOKEN, fetchImpl, checks, log);
     // After a new daily seal, rebuild the site once (subject to the daily cap).
-    await runRebuild({
-      mode: "after_seal",
-      stateStore: store,
-      deployHookUrl: env.DEPLOY_HOOK_URL,
-      fetchImpl,
-      headsUrl: HEADS_RAW_URL,
-      userAgent: USER_AGENT,
-      now,
-      log,
-    });
+    await runRebuildIfConfigured("after_seal", env, fetchImpl, log, now);
     return;
   }
 
   if (controller.cron === REBUILD_CRON) {
-    await runRebuild({
-      mode: "scheduled",
-      stateStore: store,
-      deployHookUrl: env.DEPLOY_HOOK_URL,
-      fetchImpl,
-      headsUrl: HEADS_RAW_URL,
-      userAgent: USER_AGENT,
-      now,
-      log,
-    });
+    await runRebuildIfConfigured("scheduled", env, fetchImpl, log, now);
     return;
   }
 

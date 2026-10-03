@@ -431,11 +431,14 @@ https://developers.cloudflare.com/pages/platform/limits/
 
 310 is under the Free limit of 500.
 
-The header chip "Ledger as of …" is the ledger tip timestamp from the build
-data, not the visitor's clock. If that timestamp is more than 6 hours old, a
+The header chip "Last checked … UTC" is the newest observation timestamp from
+the build data (the last poller check on the data branch), not the ledger tip
+and not the visitor's clock. If that timestamp is more than 30 minutes old, a
 quiet notice appears: "Data is from <time>. Our last update was delayed."
 
-See `watchdog/README.md` for creating the deploy hook and setting `DEPLOY_HOOK_URL`.
+See `watchdog/README.md` for the required `STATE` KV binding, deploy hook, and
+`DEPLOY_HOOK_URL`. Without the hook, rebuilds log `skipped=no_hook` and health
+alerting still runs.
 
 ## Privacy
 

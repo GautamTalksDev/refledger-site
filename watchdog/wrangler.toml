@@ -10,9 +10,9 @@ preview_urls = false
 # Health checks every 15 minutes; Pages rebuild at :07 every 3 hours.
 crons = ["*/15 * * * *", "7 */3 * * *"]
 
-# Optional but recommended: persistent rebuild counters across isolates.
+# Required: persistent rebuild counters and after-seal state across isolates.
 # Create with: wrangler kv namespace create WATCHDOG_STATE
-# Then paste the id below (and preview_id for local).
-# [[kv_namespaces]]
-# binding = "STATE"
-# id = "REPLACE_WITH_KV_NAMESPACE_ID"
+# Then paste the id below.
+[[kv_namespaces]]
+binding = "STATE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"

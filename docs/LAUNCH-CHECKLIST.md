@@ -605,7 +605,7 @@ Should return no results.
    wrangler secret put GITHUB_TOKEN
    wrangler deploy
    ```
-3. Optional: create KV `WATCHDOG_STATE` and bind as `STATE` in `watchdog/wrangler.toml`
+3. Required: create KV `WATCHDOG_STATE` and bind as `STATE` in `watchdog/wrangler.toml` (rebuilds refuse without it)
 4. Confirm logs show `rebuild triggered mode=scheduled` within 3 hours, and
    `mode=after_seal` after the next daily seal
 5. If rebuilds stop: see RUNBOOK § rebuilds and `watchdog/README.md`

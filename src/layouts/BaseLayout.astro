@@ -10,8 +10,9 @@ interface Props {
   /** Which main nav item is current: home | moved | how | verify */
   nav?: 'home' | 'moved' | 'how' | 'verify' | null;
   /** Formatted chip label, e.g. "2 Oct, 16:20 UTC", from build-time data only. */
+  /** Formatted "Last checked" time (UTC), from newest observation at build. */
   ledgerAsOf?: string;
-  /** ISO timestamp for the chip; used only to decide the stale notice client-side. */
+  /** ISO of newest observation; used to decide the stale notice client-side. */
   ledgerAsOfIso?: string;
   /** Latest tip seq for footer example link */
   latestSeq?: number;
@@ -107,12 +108,12 @@ const canonical = `${site}${canonicalPath === '/' ? '' : canonicalPath}`;
           ledgerAsOf && (
             <span
               class="status"
-              title="Snapshot time from the ledger data in this build"
+              title="Newest observation (last check) in this build"
               data-ledger-as-of={ledgerAsOfIso ?? undefined}
               data-ledger-label={ledgerAsOf}
             >
               <span class="dot" aria-hidden="true"></span>
-              Ledger as of {ledgerAsOf}
+              Last checked {ledgerAsOf}
             </span>
           )
         }

@@ -47,7 +47,7 @@ test('404 page', async ({ page }) => {
   await axeOk(page);
 });
 
-test('ledger chip uses build data; stale notice respects clock', async ({
+test('last-checked chip uses build data; stale notice respects clock', async ({
   page,
 }) => {
   await page.goto('/');
@@ -57,10 +57,10 @@ test('ledger chip uses build data; stale notice respects clock', async ({
   const label = await chip.getAttribute('data-ledger-label');
   expect(iso).toBeTruthy();
   expect(label).toMatch(/UTC$/);
-  await expect(chip).toContainText(label!);
+  await expect(chip).toContainText(`Last checked ${label!}`);
 
-  const freshMs = Date.parse(iso!) + 60 * 60 * 1000;
-  const staleMs = Date.parse(iso!) + 7 * 60 * 60 * 1000;
+  const freshMs = Date.parse(iso!) + 10 * 60 * 1000;
+  const staleMs = Date.parse(iso!) + 45 * 60 * 1000;
 
   await page.addInitScript((fixed) => {
     const RealDate = Date;

@@ -14,8 +14,8 @@ const sample = EXAMPLE_FILES[0].text;
   description="Paste a GitHub Actions workflow file. It never leaves your browser."
   canonicalPath="/paste"
   nav="home"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap narrow u-e47c4d83" id="paste-shell">

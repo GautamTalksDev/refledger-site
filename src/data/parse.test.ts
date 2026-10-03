@@ -65,6 +65,12 @@ describe('parse fixtures', () => {
     expect(index.gaps.length).toBeGreaterThanOrEqual(1);
     expect(index.reposByName.has('GautamTalksDev/canary')).toBe(true);
 
+    const newestObs = [...data.observations]
+      .map((o) => o.observed_at)
+      .sort()
+      .at(-1);
+    expect(index.lastCheckedAt).toBe(newestObs);
+
     const canary = index.reposByName.get('GautamTalksDev/canary')!;
     expect(canary.canary).toBe(true);
     expect(canary.tags.length).toBeGreaterThan(0);

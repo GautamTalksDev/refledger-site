@@ -195,10 +195,10 @@ export async function runRebuild(opts: {
 }): Promise<RebuildDecision> {
   if (!opts.deployHookUrl) {
     const next = normalizeState(await opts.stateStore.get(), opts.now);
-    opts.log("rebuild skipped=no_deploy_hook");
+    opts.log("rebuild skipped=no_hook");
     return {
       shouldRebuild: false,
-      skipReason: "no_deploy_hook",
+      skipReason: "no_hook",
       nextState: next,
     };
   }

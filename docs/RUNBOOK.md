@@ -671,12 +671,13 @@ Next update: After first incident, or after 2026-10-10 seal (whichever first).
 
 ## Rebuilds stopped (site data stale)
 
-Symptoms: header chip older than a few hours, or the notice
+Symptoms: "Last checked" chip older than about 30 minutes, or the notice
 "Data is from …. Our last update was delayed."
 
 1. Cloudflare → Workers → `refledger-watchdog` → Logs
    - `rebuild skipped=daily_cap`: wait for next UTC day
-   - `rebuild skipped=no_deploy_hook`: run `wrangler secret put DEPLOY_HOOK_URL`
+   - `rebuild skipped=no_hook`: run `wrangler secret put DEPLOY_HOOK_URL` (after the Pages project exists)
+   - `rebuild skipped=no_state`: create KV `WATCHDOG_STATE` and bind as `STATE` in `watchdog/wrangler.toml`, then redeploy
    - `deploy_hook status=4xx/5xx`: recreate the Pages deploy hook and update the secret
 2. Pages → Deployments: confirm deploy-hook builds
 3. Manual recovery: Pages → Deployments → Retry deployment, or POST the hook once
@@ -684,4 +685,5 @@ Symptoms: header chip older than a few hours, or the notice
 
 Deploy hook setup: Cloudflare Pages project → Settings → Deploy hooks.
 Secret name: `DEPLOY_HOOK_URL` on the `refledger-watchdog` Worker.
+KV binding `STATE` is required for rebuilds; health alerting works without the hook.
 

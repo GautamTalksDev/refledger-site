@@ -102,8 +102,8 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   description="Move a tag, watch the poller, and see how the signed hash chain works."
   canonicalPath="/how"
   nav="how"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap u-e47c4d83">

@@ -12,8 +12,8 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   description="Results of checking a public GitHub repository's workflow actions against the Refledger record."
   canonicalPath="/check"
   nav="home"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div id="check-root"></div>

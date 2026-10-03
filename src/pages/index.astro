@@ -22,8 +22,8 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   description="Refledger checks every GitHub Action your workflow uses, tells you which ones can change without you knowing, and gives you the fix. Backed by a public, signed record of where every watched tag has pointed."
   canonicalPath="/"
   nav="home"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap narrow u-5edb7037">

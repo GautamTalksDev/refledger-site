@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { getSiteData, shortSha, tagFromRef } from '../../../../data';
-import { fmtUtc } from '../../../../lib/format';
+import { fmtLedgerAsOf, fmtUtc } from '../../../../lib/format';
 import { whatChangedFromEntry } from '../../../../lib/what-changed';
 
 export function getStaticPaths() {
@@ -71,8 +71,8 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   title={`${repoKey} ${tag} · Refledger`}
   description={`Binding history for ${repoKey} tag ${tag}.`}
   canonicalPath={`/a/${repoKey}/${tag}`}
-  ledgerAsOf={fmtUtc(data.buildTime) + ' UTC'}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap u-ed929bb2">

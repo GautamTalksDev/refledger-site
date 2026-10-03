@@ -11,8 +11,8 @@ const tipSeq = Math.max(0, data.chainLength - 1);
   title="Security · Refledger"
   description="How to report a vulnerability in Refledger, and what we do when we detect a live attack."
   canonicalPath="/security"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap narrow u-882997a9">

@@ -1,6 +1,6 @@
 import { isDataStale, staleNoticeText } from '../lib/freshness';
 
-/** Show the quiet delay notice when embedded ledger data is older than 6 hours. */
+/** Show the quiet delay notice when the last check is older than 30 minutes. */
 export function bootFreshnessNotice(nowMs: number = Date.now()): void {
   const chip = document.querySelector<HTMLElement>('[data-ledger-as-of]');
   const notice = document.getElementById('stale-notice');

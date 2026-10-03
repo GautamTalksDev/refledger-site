@@ -204,7 +204,7 @@ describe("runRebuild", () => {
       now: new Date("2026-10-03T12:00:00Z"),
       log: (m) => logs.push(m),
     });
-    expect(decision.skipReason).toBe("no_deploy_hook");
-    expect(logs.some((l) => l.includes("no_deploy_hook"))).toBe(true);
+    expect(decision.skipReason).toBe("no_hook");
+    expect(logs.some((l) => l.includes("rebuild skipped=no_hook"))).toBe(true);
   });
 });

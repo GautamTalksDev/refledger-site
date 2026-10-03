@@ -21,8 +21,8 @@ const cliShort = `cargo run --locked --release -p refledger-verify -- data/log -
   description="Replay every entry, recompute every hash, and check every signature in your browser or with the CLI."
   canonicalPath="/verify"
   nav="verify"
-  ledgerAsOf={fmtLedgerAsOf(data.buildTime)}
-  ledgerAsOfIso={data.buildTime}
+  ledgerAsOf={fmtLedgerAsOf(data.lastCheckedAt)}
+  ledgerAsOfIso={data.lastCheckedAt}
   latestSeq={tipSeq}
 >
   <div class="wrap u-e47c4d83">

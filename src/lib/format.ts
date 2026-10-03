@@ -27,7 +27,7 @@ export function fmtUtc(msOrIso: number | string): string {
   return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
-/** "2 Oct, 16:20 UTC" for status strip. Always formats the ISO from build data. */
+/** "2 Oct, 16:20 UTC" for the Last checked chip. Always formats the ISO from build data. */
 export function fmtLedgerAsOf(iso: string): string {
   return `${fmtUtc(iso)} UTC`;
 }
