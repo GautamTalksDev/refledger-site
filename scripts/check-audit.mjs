@@ -7,8 +7,12 @@ import { execFileSync } from 'node:child_process';
 
 /** Advisories with no fixed package version published yet. */
 const ALLOW = new Set([
-  // http-cache-semantics <=4.2.0 (latest). Used by astro@7.3.5 for
-  // build-time HTTP caching only, not the static production site.
+  // Rechecked 2026-10-03. npm latest is still 4.2.0. Upstream issue
+  // kornelski/http-cache-semantics#56 is open. The 2026-09-29 commit
+  // "Fix: handle Vary wildcard and inherited headers" does not close
+  // GHSA-ch52-4w7c-c8xp, so an override to that git revision is not a
+  // patch. Used by astro@7.3.5 for build-time HTTP caching only, not
+  // the static production site. Public since 2026-09-18.
   'GHSA-CH52-4W7C-C8XP',
 ]);
 

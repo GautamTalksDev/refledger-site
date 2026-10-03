@@ -36,6 +36,7 @@ describe('api/v1 builders', () => {
     assertSchema('index', idx);
     expect(idx.population.action_count).toBe(38);
     expect(idx.population.repository_count).toBe(35);
+    expect(idx.ledger_data_license).toBe('Ledger data: CC0, public domain');
   });
 
   it('moved matches schema and uses fact wording', () => {

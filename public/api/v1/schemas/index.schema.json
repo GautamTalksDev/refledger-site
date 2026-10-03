@@ -10,7 +10,8 @@
     "public_key",
     "population",
     "genesis_at",
-    "chain_length"
+    "chain_length",
+    "ledger_data_license"
   ],
   "properties": {
     "api_version": { "const": "v1" },
@@ -29,7 +30,8 @@
       "additionalProperties": false
     },
     "genesis_at": { "type": "string" },
-    "chain_length": { "type": "integer" }
+    "chain_length": { "type": "integer" },
+    "ledger_data_license": { "const": "Ledger data: CC0, public domain" }
   },
   "additionalProperties": false
 }
