@@ -45,6 +45,7 @@ test('verify page and in-browser verifier', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     "Don't trust us",
   );
+  await expect(page.getByText('Ledger data: CC0, public domain')).toBeVisible();
   await expectNoSeriousAxe(page);
 
   await page.getByRole('button', { name: 'Verify the whole ledger' }).click();

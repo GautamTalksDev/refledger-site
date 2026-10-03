@@ -26,6 +26,8 @@ export type ApiIndex = {
   };
   genesis_at: string;
   chain_length: number;
+  /** Human-readable dedication for ledger, observations, and published data. */
+  ledger_data_license: 'Ledger data: CC0, public domain';
 };
 
 export type ApiBinding = {
@@ -139,6 +141,7 @@ export function buildIndex(data: SiteData = getSiteData()): ApiIndex {
     population: populationCounts(data),
     genesis_at: data.genesisAt,
     chain_length: data.chainLength,
+    ledger_data_license: 'Ledger data: CC0, public domain',
   };
 }
 

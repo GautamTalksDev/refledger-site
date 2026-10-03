@@ -35,7 +35,7 @@ jobs:
       - name: Fetch ledger data
         run: npm run fetch-data
 
-      - name: Unit tests and conformance vectors
+      - name: Unit tests, conformance vectors, and property tests
         run: npm test
 
       - name: Publish verify assets and OG images

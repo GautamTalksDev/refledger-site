@@ -991,4 +991,10 @@ git checkout origin/data
 
 Pre-launch checklist created.
 
-Next update: After seal lands (2026-10-10) and hardening steps completed.
+### 3 October 2026 - SPDX license field during the freeze
+
+`refledger-site` `package.json` now has `"license": "Apache-2.0"`.
+
+The refledger workspace `Cargo.toml` already sets `license = "Apache-2.0"`, and `refledger-log`, `refledger-verify`, `refledger-poller`, and `tools/calibrate` already declare it. Do not edit any `Cargo.toml` until the freeze lifts at 2026-10-10T00:00:00Z.
+
+After the seal, add `license = "Apache-2.0"` to the three standalone tool manifests that still omit it: `tools/census/Cargo.toml`, `tools/canary-score/Cargo.toml`, and `tools/rekor-probe/Cargo.toml`. No other post-seal license edit is required.

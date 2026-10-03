@@ -639,9 +639,28 @@ Refledger is a solo project during the M1 freeze (2026-10-03 through 2026-10-10)
 
 ---
 
+## HTTP API
+
+The site publishes a static JSON API. Each document is facts only: no verdict field, and no "safe" or "malicious" label. Schemas (JSON Schema draft 2020-12) live in [`public/api/v1/schemas/`](public/api/v1/schemas/).
+
+| Path | What it returns |
+|---|---|
+| `/api/v1/index.json` | Build time, ledger tip, population counts, signing key prefix, and the ledger data license |
+| `/api/v1/moved.json` | Recorded tag movements |
+| `/api/v1/actions/{owner}/{repo}.json` | One watched repository and its tags |
+| `/api/v1/tags/{owner}/{repo}/{tag}.json` | One tag, its current binding, and its history |
+| `/api/v1/at/{date}.json` | Bindings as of a seal date (`YYYY-MM-DD`) |
+| `/api/v1/check-ledger.json` | The snapshot the in-browser checker uses |
+
+`index.json` includes `ledger_data_license` with the value `Ledger data: CC0, public domain`.
+
+The human pages are the other external interface: `/` checks a repository, `/paste` checks a pasted workflow, `/moved` lists movements, `/verify` replays the ledger, `/a/{owner}/{repo}` and `/a/{owner}/{repo}/{tag}` show one action or tag.
+
 ## License
 
-Code is Apache 2.0. See [LICENSE-APACHE](LICENSE-APACHE) in the ledger repo.
+Site code is Apache 2.0. See [`LICENSE`](LICENSE).
+
+Ledger data (the ledger, observations, and published data) is CC0, public domain. See [`DATA-LICENSE`](https://github.com/GautamTalksDev/refledger/blob/main/DATA-LICENSE) in the ledger repository. The Verify page and `/api/v1/index.json` both say so.
 
 ---
 
@@ -650,7 +669,7 @@ Code is Apache 2.0. See [LICENSE-APACHE](LICENSE-APACHE) in the ledger repo.
 - **Production site:** [refledger.gautamkhosla.com](https://refledger.gautamkhosla.com)
 - **Ledger repository:** [github.com/GautamTalksDev/refledger](https://github.com/GautamTalksDev/refledger)
 - **Canary repository:** [github.com/GautamTalksDev/canary](https://github.com/GautamTalksDev/canary)
-- **Security policy:** [SECURITY.md](https://github.com/GautamTalksDev/refledger/blob/main/SECURITY.md)
+- **Security policy:** [SECURITY.md](SECURITY.md) for this site. Ledger policy: [SECURITY.md](https://github.com/GautamTalksDev/refledger/blob/main/SECURITY.md)
 - **Operations policy:** [OPERATIONS.md](https://github.com/GautamTalksDev/refledger/blob/main/OPERATIONS.md)
 - **Verification guide:** [docs/VERIFY.md](https://github.com/GautamTalksDev/refledger/blob/main/docs/VERIFY.md)
 
