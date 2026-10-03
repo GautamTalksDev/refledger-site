@@ -252,6 +252,20 @@ function currentTagCommit(
   return ledger.currentByTag.get(repo)?.get(tag);
 }
 
+function preferExactSuggestion(exact: string | null, comment: string): string {
+  if (exact && exact !== comment) {
+    return ` You could name the exact version, ${exact}, so updates read clearly.`;
+  }
+  return '';
+}
+
+/** Honest pin copy: SHA locks this action's own code, not transitive tags. */
+const PINNED_OWN_CODE =
+  "This action's own code cannot change. If it calls other actions or images by tag, those can still move.";
+
+const PINNED_OWN_CODE_WRONG_SUFFIX =
+  "This action's own code cannot move, but the label will mislead whoever updates it next.";
+
 function assessPinnedComment(
   item: ParsedUses,
   ledger: LedgerLookup,
@@ -265,13 +279,9 @@ function assessPinnedComment(
   const exact = preferExactTag(now);
 
   if (!comment) {
-    let detail = 'This line always runs the same code.';
-    if (watched && exact) {
-      detail += ` You could name the exact version, ${exact}, so updates read clearly.`;
-    }
     return {
       status: 'Pinned to a commit. Nothing to do.',
-      detail,
+      detail: PINNED_OWN_CODE + preferExactSuggestion(exact, ''),
       fix: null,
       attn: false,
     };
@@ -282,7 +292,7 @@ function assessPinnedComment(
     if (resolved && resolved === sha) {
       return {
         status: 'Pinned to a commit. Nothing to do.',
-        detail: 'This line always runs the same code.',
+        detail: PINNED_OWN_CODE,
         fix: null,
         attn: false,
       };
@@ -290,7 +300,7 @@ function assessPinnedComment(
     if (resolved && resolved !== sha) {
       return {
         status: 'Pinned, but the comment is wrong',
-        detail: `${comment} does not point at this commit today. The code cannot move, but the label will mislead whoever updates it next.`,
+        detail: `${comment} does not point at this commit today. ${PINNED_OWN_CODE_WRONG_SUFFIX}`,
         // No suggested rewrite: we do not invent a version name for unwatched actions.
         fix: null,
         attn: true,
@@ -298,7 +308,7 @@ function assessPinnedComment(
     }
     return {
       status: 'Pinned to a commit. Nothing to do.',
-      detail: 'This line always runs the same code.',
+      detail: PINNED_OWN_CODE,
       fix: null,
       attn: false,
     };
@@ -306,13 +316,9 @@ function assessPinnedComment(
 
   const current = currentTagCommit(ledger, repo, comment);
   if (current === sha) {
-    let detail = 'This line always runs the same code.';
-    if (exact && exact !== comment) {
-      detail += ` You could name the exact version, ${exact}, so updates read clearly.`;
-    }
     return {
       status: 'Pinned to a commit. Nothing to do.',
-      detail,
+      detail: PINNED_OWN_CODE + preferExactSuggestion(exact, comment),
       fix: null,
       attn: false,
     };
@@ -327,7 +333,7 @@ function assessPinnedComment(
     return {
       status,
       detail:
-        'The code cannot move. The comment names a tag that has moved on since we started watching.',
+        "This action's own code cannot move. The comment names a tag that has moved on since we started watching.",
       fix: null,
       attn: false,
     };
@@ -337,8 +343,7 @@ function assessPinnedComment(
   const since = formatWatchStart(ledger.watchedSinceMs);
   let detail = `${comment} has not pointed at this commit since we started watching on ${since}.`;
   if (named) detail += ` This commit is ${named}.`;
-  detail +=
-    ' The code cannot move, but the label will mislead whoever updates it next.';
+  detail += ` ${PINNED_OWN_CODE_WRONG_SUFFIX}`;
   return {
     status: 'Pinned, but the comment is wrong',
     detail,

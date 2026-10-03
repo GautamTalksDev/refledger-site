@@ -217,9 +217,9 @@ function assess(item, sha) {
   if (item.kind === 'sha') {
     var known = KNOWN[item.ref];
     if (known && item.comment && item.comment !== known) {
-      r.status = 'Pinned, but the comment is wrong'; r.detail = 'This commit was never ' + item.comment + '. It is ' + known + '. The code cannot move, but the label will mislead whoever updates it next.';
+      r.status = 'Pinned, but the comment is wrong'; r.detail = item.comment + ' has not pointed at this commit since we started watching. It is ' + known + ". This action's own code cannot move, but the label will mislead whoever updates it next.";
       r.fix = item.target + '@' + item.ref + ' # ' + known; r.attn = true;
-    } else { r.status = 'Pinned to a commit. Nothing to do.'; r.detail = 'This line always runs the same code.'; }
+    } else { r.status = 'Pinned to a commit. Nothing to do.'; r.detail = "This action's own code cannot change. If it calls other actions or images by tag, those can still move."; }
     if (w) r.link = { href: '#/a/' + item.key, text: 'See its history' };
     return r;
   }
@@ -308,7 +308,7 @@ function pageCheck() {
   var fixable = st.results.filter(function (r) { return r.fix; }).length;
   var head;
   if (res.length === 0) head = 'We didn\'t find any actions to check.';
-  else if (risky === 0 && fixable === 0) head = 'All ' + res.length + ' of your actions are pinned. Nothing can change under you.';
+  else if (risky === 0 && fixable === 0) head = 'All ' + res.length + ' of your actions are pinned. Their own code cannot change under you.';
   else if (risky === 0) head = 'Your actions are pinned, but ' + fixable + (fixable === 1 ? ' comment is' : ' comments are') + ' wrong.';
   else head = risky + ' of your ' + res.length + ' actions can change without you knowing.';
   var sub = fixable ? 'One copy fixes what we can: each action pinned to the exact code it runs today, with a comment saying which version that is.' + (st.results.some(function (r) { return r.item.kind === 'branch' && !r.fix; }) ? ' Branches are your call.' : '') : 'Nothing for us to fix here.';

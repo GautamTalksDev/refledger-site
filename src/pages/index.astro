@@ -89,7 +89,8 @@ const checked = fmtLedgerAsOf(data.lastCheckedAt);
       <p class="status-line attn">Uses a tag that can be moved</p>
       <p class="example-detail">
         A tag is a pointer. Pinning locks this line to the commit it runs today,
-        so a later move cannot change the code under you.
+        so a later move of this tag cannot change this action's own code. If it
+        calls other actions or images by tag, those can still move.
       </p>
     </aside>
 
