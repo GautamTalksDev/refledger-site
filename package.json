@@ -21,7 +21,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "7.3.5"
+    "astro": "7.3.6"
   },
   "allowScripts": {
     "esbuild": true
